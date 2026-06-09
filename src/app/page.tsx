@@ -199,8 +199,7 @@ export default function Dashboard() {
                 addLog(agentId, agent.name, "success", "Agent completed successfully");
                 addThinkingStep("done", "Agent completed successfully");
                 if (agentId === "testbot") {
-                  const casesPath = `${projectPath || ""}/cases.json`;
-                  addLog(agentId, agent.name, "success", `DOWNLOAD:${casesPath}`);
+                  addLog(agentId, agent.name, "success", `DOWNLOAD:agents-data/manual-qa-agent/cases.json`);
                 }
               }
             } catch {

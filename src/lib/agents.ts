@@ -20,17 +20,20 @@ export interface AgentConfig {
   inputOptional?: boolean;
   extraFields?: ExtraField[];
   phases: string[];
+  /** Folder name inside agents-data/ where generated files are saved */
+  outputFolder?: string;
 }
 
 export const agents: AgentConfig[] = [
   {
     id: "manual",
-    name: "Manual Agent",
+    name: "Qase IO Agent",
     description:
       "Qase.io-dan ან JSON ფაილიდან ქეისების წამოღება. manual_output.json ის გენერირება",
     icon: "Search",
     color: "emerald",
     promptFile: "automatization-tests/manual.md",
+    outputFolder: "qase-io-agent",
     inputLabel: "WSP ID / Suite ID",
     inputPlaceholder: "WSP-2314 or suite_id=123 (ცარიელი თუ JSON ფაილს იყენებ)",
     inputOptional: true,
@@ -112,6 +115,7 @@ export const agents: AgentConfig[] = [
     icon: "Workflow",
     color: "purple",
     promptFile: "automatization-tests/full-flow.md",
+    outputFolder: "full-flow-agent",
     inputLabel: "WSP ID(s)",
     inputPlaceholder: "WSP-2314, WSP-2315",
     phases: [
@@ -132,6 +136,7 @@ export const agents: AgentConfig[] = [
     icon: "ClipboardCheck",
     color: "cyan",
     promptFile: "automatization-tests/testbot.md",
+    outputFolder: "manual-qa-agent",
     inputLabel: "Feature Name",
     inputPlaceholder: "Registration Page, Login Modal...",
     inputOptional: false,

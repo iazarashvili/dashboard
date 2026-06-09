@@ -24,15 +24,35 @@ export async function POST(req: NextRequest) {
 
   // Build the claude command — inject context based on agent type
   let extraContext = "";
-  const manualOutputPath = path.join(workDir, "manual_output.json");
+
+  // agents-data output directory for this agent
+  const agentsDataRoot = path.join(agentsRoot, "agents-data");
+  const agentOutputDir = agent.outputFolder
+    ? path.join(agentsDataRoot, agent.outputFolder)
+    : null;
+
+  const manualOutputPath = agentOutputDir
+    ? path.join(agentOutputDir, "manual_output.json")
+    : path.join(workDir, "manual_output.json");
 
   if (agentId === "manual") {
     const fields = extraFields as Record<string, string> | undefined;
     if (fields?.casesJsonFile) {
       extraContext += `\n\nIMPORTANT: A cases JSON file has been provided instead of Qase.io. Read test cases from this file: "${fields.casesJsonFile}"\nDo NOT call Qase.io API. Extract case_id, title, steps, and expected results from the JSON file and use them as input for your recon work.`;
     }
+    extraContext += `\n\nSave the generated manual_output.json file at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
   } else if (agentId === "write-test" || agentId === "full-flow") {
-    extraContext += `\n\nThe manual_output.json file is located at: ${manualOutputPath}`;
+    // write-test reads from qase-io-agent output; full-flow writes its own
+    const qaseOutputDir = path.join(agentsDataRoot, "qase-io-agent");
+    const readManualOutput = agentId === "write-test"
+      ? path.join(qaseOutputDir, "manual_output.json")
+      : manualOutputPath;
+
+    extraContext += `\n\nThe manual_output.json file is located at: ${readManualOutput}`;
+
+    if (agentId === "full-flow" && agentOutputDir) {
+      extraContext += `\nSave the generated manual_output.json at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
+    }
 
     // Add file path instructions from extra fields
     const fields = extraFields as Record<string, string> | undefined;
@@ -46,7 +66,8 @@ export async function POST(req: NextRequest) {
       }
     }
   } else if (agentId === "fix-test") {
-    extraContext += `\n\nIf manual_output.json is needed, it is located at: ${manualOutputPath}`;
+    const qaseOutputDir = path.join(agentsDataRoot, "qase-io-agent");
+    extraContext += `\n\nIf manual_output.json is needed, it is located at: ${path.join(qaseOutputDir, "manual_output.json")}`;
   } else if (agentId === "testbot") {
     const fields = extraFields as Record<string, string> | undefined;
     if (fields) {
@@ -54,8 +75,12 @@ export async function POST(req: NextRequest) {
       if (fields.screenshotPath) extraContext += `\nScreenshot file to view: ${fields.screenshotPath}`;
       if (fields.htmlPath) extraContext += `\nHTML file to read: ${fields.htmlPath}`;
     }
-    const casesDir = path.join(agentsRoot, "manual-agent-cases");
-    extraContext += `\n\nSave the generated cases.json file at: ${path.join(casesDir, "cases.json")}\nCreate the directory "${casesDir}" if it does not exist.`;
+    const helpDataDir = path.join(agentsRoot, "agents-help-data");
+    extraContext += `\n\nAuto-detect helper data directory: ${helpDataDir}`;
+    extraContext += `\nScreenshots folder: ${path.join(helpDataDir, "screenshots")}`;
+    extraContext += `\nHTML sources folder: ${path.join(helpDataDir, "html-sources")}`;
+    extraContext += `\nCheck these folders for pre-loaded screenshots and HTML files. Use ALL files found as additional input context.`;
+    extraContext += `\n\nSave the generated cases.json file at: ${path.join(agentOutputDir!, "cases.json")}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
   }
 
   const prompt = `Read the agent instructions from "${promptFile}" and execute the task with this input: ${input}
