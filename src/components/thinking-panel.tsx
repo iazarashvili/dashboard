@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import {
   Brain,
   FileText,
@@ -31,80 +29,17 @@ interface ThinkingPanelProps {
 
 const actionConfig: Record<
   ThinkingStep["action"],
-  { icon: React.ReactNode; bg: string; ring: string; text: string; label: string; glow: string }
+  { icon: React.ReactNode; color: string; label: string }
 > = {
-  read: {
-    icon: <FileText className="h-3.5 w-3.5" />,
-    bg: "bg-blue-500",
-    ring: "ring-blue-500/30",
-    text: "text-blue-400",
-    label: "READ",
-    glow: "shadow-blue-500/20",
-  },
-  write: {
-    icon: <Pencil className="h-3.5 w-3.5" />,
-    bg: "bg-emerald-500",
-    ring: "ring-emerald-500/30",
-    text: "text-emerald-400",
-    label: "CREATE",
-    glow: "shadow-emerald-500/20",
-  },
-  edit: {
-    icon: <Pencil className="h-3.5 w-3.5" />,
-    bg: "bg-amber-500",
-    ring: "ring-amber-500/30",
-    text: "text-amber-400",
-    label: "EDIT",
-    glow: "shadow-amber-500/20",
-  },
-  search: {
-    icon: <Search className="h-3.5 w-3.5" />,
-    bg: "bg-purple-500",
-    ring: "ring-purple-500/30",
-    text: "text-purple-400",
-    label: "SEARCH",
-    glow: "shadow-purple-500/20",
-  },
-  navigate: {
-    icon: <Globe className="h-3.5 w-3.5" />,
-    bg: "bg-cyan-500",
-    ring: "ring-cyan-500/30",
-    text: "text-cyan-400",
-    label: "NAVIGATE",
-    glow: "shadow-cyan-500/20",
-  },
-  command: {
-    icon: <Terminal className="h-3.5 w-3.5" />,
-    bg: "bg-zinc-500",
-    ring: "ring-zinc-500/30",
-    text: "text-zinc-400",
-    label: "RUN",
-    glow: "shadow-zinc-500/20",
-  },
-  decide: {
-    icon: <Brain className="h-3.5 w-3.5" />,
-    bg: "bg-pink-500",
-    ring: "ring-pink-500/30",
-    text: "text-pink-400",
-    label: "THINK",
-    glow: "shadow-pink-500/20",
-  },
-  error: {
-    icon: <AlertCircle className="h-3.5 w-3.5" />,
-    bg: "bg-red-500",
-    ring: "ring-red-500/30",
-    text: "text-red-400",
-    label: "ERROR",
-    glow: "shadow-red-500/20",
-  },
-  done: {
-    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-    bg: "bg-emerald-500",
-    ring: "ring-emerald-500/30",
-    text: "text-emerald-400",
-    label: "DONE",
-    glow: "shadow-emerald-500/20",
-  },
+  read: { icon: <FileText className="h-3.5 w-3.5" />, color: "#3b82f6", label: "READ" },
+  write: { icon: <Pencil className="h-3.5 w-3.5" />, color: "#10b981", label: "CREATE" },
+  edit: { icon: <Pencil className="h-3.5 w-3.5" />, color: "#f59e0b", label: "EDIT" },
+  search: { icon: <Search className="h-3.5 w-3.5" />, color: "#a855f7", label: "SEARCH" },
+  navigate: { icon: <Globe className="h-3.5 w-3.5" />, color: "#06b6d4", label: "NAVIGATE" },
+  command: { icon: <Terminal className="h-3.5 w-3.5" />, color: "#64748b", label: "RUN" },
+  decide: { icon: <Brain className="h-3.5 w-3.5" />, color: "#ec4899", label: "THINK" },
+  error: { icon: <AlertCircle className="h-3.5 w-3.5" />, color: "#ef4444", label: "ERROR" },
+  done: { icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: "#10b981", label: "DONE" },
 };
 
 export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
@@ -114,7 +49,6 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [steps]);
 
-  // Count actions by type
   const counts: Record<string, number> = {};
   steps.forEach((s) => {
     counts[s.action] = (counts[s.action] || 0) + 1;
@@ -123,15 +57,25 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+      <div
+        className="flex items-center justify-between px-4 py-2 border-b shrink-0"
+        style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+      >
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Thinking Process</span>
+          <Brain className="h-4 w-4 text-[#64748b]" />
+          <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#64748b]">Thinking</span>
           {isActive && (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-pink-500/10 border border-pink-500/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-              <span className="text-[10px] text-pink-400 font-medium">THINKING</span>
-            </div>
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold"
+              style={{
+                background: 'rgba(236,72,153,0.1)',
+                border: '1px solid rgba(236,72,153,0.2)',
+                color: '#ec4899',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ec4899]" style={{ animation: 'pulse-dot 1.2s infinite' }} />
+              ACTIVE
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
@@ -139,29 +83,33 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
             const cfg = actionConfig[action as ThinkingStep["action"]];
             if (!cfg) return null;
             return (
-              <div
+              <span
                 key={action}
-                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${cfg.text} opacity-60`}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] opacity-60"
+                style={{ color: cfg.color }}
               >
                 {cfg.icon}
                 <span>{count}</span>
-              </div>
+              </span>
             );
           })}
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         {steps.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+          <div className="flex flex-col items-center justify-center h-64 text-[#374151] gap-3">
             <Brain className="h-10 w-10 opacity-15" />
-            <span className="text-xs">Agent reasoning will appear here</span>
+            <span className="text-[11px]">Agent reasoning will appear here</span>
           </div>
         ) : (
           <div className="p-4">
             <div className="relative">
-              {/* Gradient timeline line */}
-              <div className="absolute left-[17px] top-4 bottom-4 w-px bg-gradient-to-b from-pink-500/30 via-border to-transparent" />
+              {/* Timeline line */}
+              <div
+                className="absolute left-[17px] top-4 bottom-4 w-px"
+                style={{ background: 'linear-gradient(to bottom, rgba(236,72,153,0.3), rgba(255,255,255,0.08), transparent)' }}
+              />
 
               <div className="space-y-1">
                 {steps.map((step, i) => {
@@ -172,24 +120,31 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
                   return (
                     <div
                       key={i}
-                      className={`group flex gap-3 relative rounded-lg px-1 py-2 transition-all duration-300 ${
-                        isLatest ? "bg-pink-500/5" : "hover:bg-muted/30"
-                      }`}
+                      className="group flex gap-3 relative rounded-lg px-1 py-2 transition-all duration-300 animate-fade-in"
+                      style={{
+                        background: isLatest ? 'rgba(236,72,153,0.05)' : undefined,
+                      }}
                     >
                       {/* Node */}
                       <div className="relative z-10 shrink-0">
                         {isLatest ? (
                           <div
-                            className={`flex items-center justify-center w-[35px] h-[35px] rounded-full ${config.bg} shadow-lg ${config.glow} ring-4 ${config.ring}`}
+                            className="flex items-center justify-center w-[35px] h-[35px] rounded-full text-white"
+                            style={{
+                              background: config.color,
+                              boxShadow: `0 0 15px color-mix(in srgb, ${config.color} 40%, transparent), 0 0 0 4px color-mix(in srgb, ${config.color} 20%, transparent)`,
+                            }}
                           >
-                            <div className="text-white">{config.icon}</div>
-                            <div
-                              className={`absolute inset-0 rounded-full ${config.bg} opacity-25 animate-ping`}
-                            />
+                            {config.icon}
                           </div>
                         ) : (
                           <div
-                            className={`flex items-center justify-center w-[35px] h-[35px] rounded-full ${config.bg}/15 border border-current/10 ${config.text}`}
+                            className="flex items-center justify-center w-[35px] h-[35px] rounded-full"
+                            style={{
+                              background: `color-mix(in srgb, ${config.color} 15%, transparent)`,
+                              border: `1px solid color-mix(in srgb, ${config.color} 20%, transparent)`,
+                              color: config.color,
+                            }}
                           >
                             {config.icon}
                           </div>
@@ -200,29 +155,29 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
                       <div className="flex-1 min-w-0 pt-1">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-[10px] font-bold tracking-wider ${config.text}`}
+                            className="text-[10px] font-bold tracking-wider"
+                            style={{ color: config.color }}
                           >
                             {config.label}
                           </span>
-                          <div className="flex items-center gap-1 text-[10px] text-zinc-600">
+                          <span className="flex items-center gap-1 text-[10px] text-[#374151]">
                             <Clock className="h-2.5 w-2.5" />
                             {step.timestamp}
-                          </div>
+                          </span>
                           {isLatest && (
-                            <Zap className="h-3 w-3 text-pink-400 animate-pulse" />
+                            <Zap className="h-3 w-3 text-[#ec4899]" style={{ animation: 'pulse-dot 1.2s infinite' }} />
                           )}
                         </div>
 
                         <div
-                          className={`mt-1 text-xs font-mono truncate ${
-                            isLatest ? "text-foreground" : "text-foreground/70"
-                          }`}
+                          className="mt-1 text-[11px] truncate"
+                          style={{ color: isLatest ? '#f1f5f9' : 'rgba(241,245,249,0.7)' }}
                         >
                           {step.target}
                         </div>
 
                         {step.detail && (
-                          <div className="mt-1 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                          <div className="mt-1 flex items-start gap-1.5 text-[10px] text-[#64748b]">
                             <ArrowRight className="h-3 w-3 shrink-0 mt-0.5 opacity-40" />
                             <span className="line-clamp-2 leading-relaxed">{step.detail}</span>
                           </div>
@@ -230,7 +185,7 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
                       </div>
 
                       {/* Step number */}
-                      <span className="text-[10px] font-mono text-zinc-700 pt-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] text-[#374151] pt-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         #{i + 1}
                       </span>
                     </div>
@@ -241,7 +196,7 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
             </div>
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }

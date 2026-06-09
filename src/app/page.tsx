@@ -10,7 +10,6 @@ import { AgentFlow } from "@/components/agent-flow";
 import { agents, type AgentStatus } from "@/lib/agents";
 import { Input } from "@/components/ui/input";
 import {
-  Bot,
   Activity,
   FolderOpen,
   Check,
@@ -258,7 +257,6 @@ export default function Dashboard() {
     (s) => s.status === "running"
   ).length;
 
-  // Get active agent info for flow diagram
   const activeAgent = activeAgentId ? agents.find((a) => a.id === activeAgentId) : null;
   const activeState = activeAgentId ? agentStates[activeAgentId] : null;
 
@@ -271,49 +269,52 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen" style={{ background: '#0a0f1a' }}>
       {/* Header */}
-      <header className="border-b border-border px-6 py-3">
+      <header className="border-b border-white/[0.08] px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-              <Bot className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold">Agent Dashboard</h1>
-              <p className="text-xs text-muted-foreground">
-                QA Automation Agents — Playwright Test Suite
-              </p>
-            </div>
+          <div>
+            <h1 className="text-[22px] font-bold tracking-[2px]">
+              <span className="text-[#f1f5f9]">QA </span>
+              <span className="text-[#f59e0b]">AGENT </span>
+              <span className="text-[#6366f1]">SYSTEM</span>
+            </h1>
+            <p className="text-[11px] text-[#64748b] tracking-[0.5px] mt-1">
+              Automated QA Pipeline — Playwright Test Suite
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input
-                value={projectPath}
-                onChange={(e) => handlePathChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handlePathSave();
-                }}
-                onBlur={handlePathSave}
-                placeholder="C:\path\to\test-project"
-                className="h-8 w-80 text-xs font-mono"
-              />
-              {pathSaved && (
-                <Check className="h-4 w-4 text-emerald-400 shrink-0 animate-in fade-in" />
-              )}
+              <span className="text-[10px] uppercase text-[#64748b] tracking-[1.5px]">Project</span>
+              <div className="flex items-center gap-2">
+                <FolderOpen className="h-3.5 w-3.5 text-[#64748b] shrink-0" />
+                <input
+                  value={projectPath}
+                  onChange={(e) => handlePathChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handlePathSave();
+                  }}
+                  onBlur={handlePathSave}
+                  placeholder="C:\path\to\test-project"
+                  className="h-8 w-72 text-[13px] bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 text-[#f1f5f9] placeholder:text-[#374151] outline-none focus:border-[#f59e0b] transition-colors"
+                />
+                {pathSaved && (
+                  <Check className="h-3.5 w-3.5 text-[#10b981] shrink-0 animate-fade-in" />
+                )}
+              </div>
             </div>
-            <div className="w-px h-6 bg-border" />
+            <div className="w-px h-5 bg-white/[0.08]" />
             <div className="flex items-center gap-2">
-              <Activity
-                className={`h-4 w-4 ${
-                  runningCount > 0 ? "text-emerald-400 animate-pulse" : "text-muted-foreground"
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  runningCount > 0 ? "bg-[#10b981] shadow-[0_0_8px_#10b981]" : "bg-[#374151]"
                 }`}
+                style={runningCount > 0 ? { animation: 'pulse-dot 1.2s infinite' } : undefined}
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-[11px] text-[#94a3b8] uppercase tracking-[0.5px]">
                 {runningCount > 0
-                  ? `${runningCount} agent${runningCount > 1 ? "s" : ""} running`
-                  : "All idle"}
+                  ? `${runningCount} running`
+                  : "Idle"}
               </span>
             </div>
           </div>
@@ -323,7 +324,7 @@ export default function Dashboard() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Agent cards */}
-        <div className="w-[480px] shrink-0 border-r border-border overflow-y-auto p-4 space-y-3">
+        <div className="w-[440px] shrink-0 border-r border-white/[0.08] overflow-y-auto p-4 space-y-3">
           {agents.map((agent) => (
             <AgentCard
               key={agent.id}
@@ -339,25 +340,25 @@ export default function Dashboard() {
         {/* Right: Tabbed panels */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Tab bar */}
-          <div className="flex items-center border-b border-border bg-card/30 px-2 shrink-0">
+          <div className="flex items-center border-b border-white/[0.08] bg-white/[0.02] px-2 shrink-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.5px] border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "border-[#f59e0b] text-[#f1f5f9]"
+                    : "border-transparent text-[#64748b] hover:text-[#94a3b8]"
                 }`}
               >
                 {tab.icon}
                 {tab.label}
                 {tab.badge !== undefined && tab.badge > 0 && (
                   <span
-                    className={`text-[10px] px-1.5 rounded-full ${
+                    className={`text-[9px] px-1.5 py-px rounded-full ${
                       activeTab === tab.id
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
+                        ? "bg-[#f59e0b]/20 text-[#f59e0b]"
+                        : "bg-white/[0.08] text-[#94a3b8]"
                     }`}
                   >
                     {tab.badge}

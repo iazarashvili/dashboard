@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Terminal, X, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export interface LogEntry {
   timestamp: string;
@@ -19,20 +16,20 @@ interface LogViewerProps {
   onClear: () => void;
 }
 
-const typeStyles: Record<string, string> = {
-  info: "text-blue-400",
-  error: "text-red-400",
-  success: "text-emerald-400",
-  output: "text-zinc-300",
-  phase: "text-amber-400",
+const typeColors: Record<string, string> = {
+  info: "#3b82f6",
+  error: "#ef4444",
+  success: "#10b981",
+  output: "#94a3b8",
+  phase: "#f59e0b",
 };
 
 const agentColors: Record<string, string> = {
-  manual: "text-emerald-400",
-  "write-test": "text-blue-400",
-  "fix-test": "text-amber-400",
-  "full-flow": "text-purple-400",
-  testbot: "text-cyan-400",
+  manual: "#10b981",
+  "write-test": "#3b82f6",
+  "fix-test": "#f59e0b",
+  "full-flow": "#a855f7",
+  testbot: "#06b6d4",
 };
 
 function DownloadButton({ filePath }: { filePath: string }) {
@@ -51,7 +48,12 @@ function DownloadButton({ filePath }: { filePath: string }) {
   return (
     <button
       onClick={handleDownload}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors text-xs font-medium"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 rounded-lg text-[11px] font-semibold transition-opacity hover:opacity-90"
+      style={{
+        background: 'rgba(6,182,212,0.2)',
+        color: '#06b6d4',
+        border: '1px solid rgba(6,182,212,0.3)',
+      }}
     >
       <Download className="h-3.5 w-3.5" />
       Download cases.json
@@ -61,6 +63,7 @@ function DownloadButton({ filePath }: { filePath: string }) {
 
 export function LogViewer({ logs, onClear }: LogViewerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -68,41 +71,44 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+      <div
+        className="flex items-center justify-between px-4 py-2 border-b shrink-0"
+        style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+      >
         <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Agent Output</span>
-          <Badge variant="outline" className="text-xs">
-            {logs.length} lines
-          </Badge>
+          <Terminal className="h-4 w-4 text-[#64748b]" />
+          <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#64748b]">Pipeline Log</span>
+          <span
+            className="text-[10px] px-1.5 py-px rounded-full"
+            style={{ background: 'rgba(255,255,255,0.08)', color: '#94a3b8' }}
+          >
+            {logs.length}
+          </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2"
+        <button
+          className="text-[#64748b] hover:text-[#94a3b8] transition-colors p-1"
           onClick={onClear}
         >
           <X className="h-3.5 w-3.5" />
-        </Button>
+        </button>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="font-mono text-xs space-y-0.5">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+        <div className="text-[11px] space-y-0.5">
           {logs.length === 0 ? (
-            <div className="text-muted-foreground text-center py-12">
+            <div className="text-[#374151] text-center py-12">
               Agent output will appear here...
             </div>
           ) : (
             logs.map((log, i) => {
-              // Check if this is a download link
               if (log.message.startsWith("DOWNLOAD:")) {
                 const filePath = log.message.replace("DOWNLOAD:", "");
                 return (
-                  <div key={i} className="flex gap-2 items-start leading-relaxed">
-                    <span className="text-zinc-600 shrink-0 select-none">
+                  <div key={i} className="flex gap-2 items-start leading-relaxed animate-fade-in">
+                    <span className="text-[#374151] shrink-0 select-none">
                       {log.timestamp}
                     </span>
-                    <span className={`shrink-0 ${agentColors[log.agentId] || "text-zinc-400"}`}>
+                    <span className="shrink-0" style={{ color: agentColors[log.agentId] || '#94a3b8' }}>
                       [{log.agentName}]
                     </span>
                     <DownloadButton filePath={filePath} />
@@ -111,18 +117,14 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
               }
 
               return (
-                <div key={i} className="flex gap-2 leading-relaxed">
-                  <span className="text-zinc-600 shrink-0 select-none">
+                <div key={i} className="flex gap-2 leading-[1.5] animate-fade-in">
+                  <span className="text-[#374151] shrink-0 select-none">
                     {log.timestamp}
                   </span>
-                  <span
-                    className={`shrink-0 ${
-                      agentColors[log.agentId] || "text-zinc-400"
-                    }`}
-                  >
+                  <span className="shrink-0" style={{ color: agentColors[log.agentId] || '#94a3b8' }}>
                     [{log.agentName}]
                   </span>
-                  <span className={typeStyles[log.type] || "text-zinc-300"}>
+                  <span style={{ color: typeColors[log.type] || '#94a3b8' }}>
                     {log.type === "phase" ? `>> ${log.message}` : log.message}
                   </span>
                 </div>
@@ -131,7 +133,7 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
           )}
           <div ref={bottomRef} />
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
