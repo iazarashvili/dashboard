@@ -37,9 +37,14 @@ export async function POST(req: NextRequest) {
 
   if (agentId === "manual") {
     const fields = extraFields as Record<string, string> | undefined;
+    const manualQaCasesPath = path.join(agentsDataRoot, "manual-qa-agent", "cases.json");
     if (fields?.casesJsonFile) {
       extraContext += `\n\nIMPORTANT: A cases JSON file has been provided instead of Qase.io. Read test cases from this file: "${fields.casesJsonFile}"\nDo NOT call Qase.io API. Extract case_id, title, steps, and expected results from the JSON file and use them as input for your recon work.`;
+    } else {
+      extraContext += `\n\nAuto-detect: If no WSP ID or suite_id was provided, check if Manual QA agent's cases.json exists at: ${manualQaCasesPath}\nIf it exists, read test cases from it (same as Cases JSON File input). Do NOT call Qase.io API in that case.`;
     }
+    const helpScreensDir = path.join(agentsRoot, "agents-help-data", "screenshots");
+    extraContext += `\n\nWhen working with cases from Manual QA's cases.json, also check for page screenshots in: ${helpScreensDir}\nIf screenshot files exist there (.png, .jpg, .webp), VIEW them — they show the actual page elements that the test cases refer to and will help you find the correct selectors.`;
     extraContext += `\n\nSave the generated manual_output.json file at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
   } else if (agentId === "write-test" || agentId === "full-flow") {
     // write-test reads from qase-io-agent output; full-flow writes its own

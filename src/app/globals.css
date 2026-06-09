@@ -128,6 +128,11 @@
   }
 }
 
+/* Hide Next.js dev toolbar logo */
+#next-logo {
+  display: none !important;
+}
+
 /* Custom scrollbar - jsx-agent style */
 ::-webkit-scrollbar {
   width: 4px;
