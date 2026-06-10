@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   Search,
   FileCode,
@@ -41,7 +41,7 @@ interface AgentCardProps {
   currentPhase: number;
 }
 
-export function AgentCard({
+export const AgentCard = memo(function AgentCard({
   agent,
   onRun,
   onStop,
@@ -232,4 +232,4 @@ export function AgentCard({
       )}
     </div>
   );
-}
+});

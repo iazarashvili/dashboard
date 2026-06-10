@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   Workflow,
   CheckCircle2,
@@ -24,7 +25,7 @@ const colorHex: Record<string, string> = {
   cyan: "#06b6d4",
 };
 
-export function AgentFlow({
+export const AgentFlow = memo(function AgentFlow({
   phases,
   currentPhase,
   status,
@@ -235,4 +236,4 @@ export function AgentFlow({
       </div>
     </div>
   );
-}
+});

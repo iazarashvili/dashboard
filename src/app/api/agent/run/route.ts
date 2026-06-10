@@ -5,8 +5,17 @@ import path from "path";
 
 export const maxDuration = 300;
 
+// Pre-compiled regex patterns (avoid re-creating on every line)
+const PATH_SRC = String.raw`["']?((?:[A-Za-z]:\\|\/)?[^\s"']*\.\w+)["']?`;
+const RE_READ = new RegExp(`(?:Read|Reading|read)\\s+(?:file\\s+)?${PATH_SRC}`);
+const RE_WRITE = new RegExp(`(?:Writ(?:e|ing|ten)|Creat(?:e|ing|ed))\\s+(?:file\\s+|to\\s+)?${PATH_SRC}`);
+const RE_EDIT = new RegExp(`(?:Edit|Editing|Updated|Modif(?:y|ied))\\s+(?:file\\s+)?${PATH_SRC}`);
+const RE_SEARCH = /(?:Search|Grep|Glob|Finding|Looking)\s+(?:for\s+|in\s+)?["']?(.+?)["']?$/i;
+const RE_NAV = /(?:browser_navigate|Navigat(?:e|ing|ed))\s+(?:to\s+)?["']?(https?:\/\/[^\s"']+)["']?/i;
+const RE_CMD = /(?:Running|Executing|Run)\s+(?:command:?\s+)?[`"'](.+?)[`"']/i;
+
 export async function POST(req: NextRequest) {
-  const { agentId, input, projectPath, extraFields } = await req.json();
+  const { agentId, input, extraFields } = await req.json();
 
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) {
@@ -17,9 +26,10 @@ export async function POST(req: NextRequest) {
   const agentsRoot = process.env.AGENTS_ROOT || path.resolve(process.cwd(), "..");
   const promptFile = path.join(agentsRoot, agent.promptFile);
 
-  // Working directory: use projectPath if provided, then DEFAULT_PROJECT_PATH, then agentsRoot
-  const workDir = projectPath
-    ? path.resolve(projectPath)
+  // Working directory: from agent's extraFields.projectPath, then DEFAULT_PROJECT_PATH, then agentsRoot
+  const agentProjectPath = (extraFields as Record<string, string>)?.projectPath;
+  const workDir = agentProjectPath
+    ? path.resolve(agentProjectPath)
     : process.env.DEFAULT_PROJECT_PATH || agentsRoot;
 
   // Build the claude command — inject context based on agent type
@@ -118,17 +128,17 @@ ${extraContext}`;
       // Spawn claude CLI process — pipe prompt via stdin
       // --allowedTools grants permissions, --mcp-config enables Playwright MCP
       const mcpConfigPath = path.join(process.cwd(), "mcp-config.json");
+      const normalizedWorkDir = path.normalize(workDir);
       const proc = spawn("claude", [
         "-p",
         "--verbose",
         "--allowedTools",
         "Bash,Read,Write,Edit,Glob,Grep,WebFetch,Agent,mcp__playwright__*",
         "--mcp-config",
-        mcpConfigPath,
+        `"${mcpConfigPath}"`,
       ], {
-        cwd: path.normalize(workDir),
+        cwd: normalizedWorkDir,
         shell: true,
-        windowsVerbatimArguments: true,
         env: {
           ...process.env,
           QASE_TOKEN: process.env.QASE_TOKEN || "",
@@ -159,52 +169,30 @@ ${extraContext}`;
 
           send({ type: "output", message: trimmed });
 
-          // Detect browser navigation URLs
-          const urlMatch = trimmed.match(/(?:navigate|goto|navigating|opened|url:?\s*)\s*(https?:\/\/[^\s"']+)/i);
-          if (urlMatch) {
-            send({ type: "browser_url", url: urlMatch[1] });
-          }
-
-          // Detect base64 screenshot data
-          if (trimmed.includes("data:image/") || trimmed.match(/^[A-Za-z0-9+/]{100,}={0,2}$/)) {
-            const base64Match = trimmed.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/);
-            if (base64Match) {
-              send({ type: "screenshot", data: base64Match[1] });
-            } else if (trimmed.match(/^[A-Za-z0-9+/]{100,}={0,2}$/)) {
-              send({ type: "screenshot", data: `data:image/png;base64,${trimmed}` });
-            }
-          }
-
-          // Detect screenshot file paths
-          const screenshotPathMatch = trimmed.match(/screenshot.*?saved.*?["']?([^\s"']+\.(?:png|jpg|jpeg|webp))["']?/i);
-          if (screenshotPathMatch) {
-            send({ type: "screenshot_path", path: screenshotPathMatch[1] });
-          }
-
-          // Detect thinking steps (tool usage patterns from verbose output)
-          const readMatch = trimmed.match(/(?:Read|Reading|read)\s+(?:file\s+)?["']?([^\s"']+\.\w+)["']?/);
+          // Detect thinking steps using pre-compiled regex patterns
+          const readMatch = trimmed.match(RE_READ);
           if (readMatch) {
             send({ type: "thinking", action: "read", target: readMatch[1] });
           }
-          const writeMatch = trimmed.match(/(?:Writ(?:e|ing|ten)|Creat(?:e|ing|ed))\s+(?:file\s+|to\s+)?["']?([^\s"']+\.\w+)["']?/);
+          const writeMatch = trimmed.match(RE_WRITE);
           if (writeMatch) {
             send({ type: "thinking", action: "write", target: writeMatch[1] });
             send({ type: "file_change", path: writeMatch[1], action: "created" });
           }
-          const editMatch = trimmed.match(/(?:Edit|Editing|Updated|Modif(?:y|ied))\s+(?:file\s+)?["']?([^\s"']+\.\w+)["']?/);
+          const editMatch = trimmed.match(RE_EDIT);
           if (editMatch) {
             send({ type: "thinking", action: "edit", target: editMatch[1] });
             send({ type: "file_change", path: editMatch[1], action: "modified" });
           }
-          const searchMatch = trimmed.match(/(?:Search|Grep|Glob|Finding|Looking)\s+(?:for\s+|in\s+)?["']?(.+?)["']?$/i);
+          const searchMatch = trimmed.match(RE_SEARCH);
           if (searchMatch) {
             send({ type: "thinking", action: "search", target: searchMatch[1] });
           }
-          const navMatch = trimmed.match(/(?:browser_navigate|Navigat(?:e|ing|ed))\s+(?:to\s+)?["']?(https?:\/\/[^\s"']+)["']?/i);
+          const navMatch = trimmed.match(RE_NAV);
           if (navMatch) {
             send({ type: "thinking", action: "navigate", target: navMatch[1] });
           }
-          const cmdMatch = trimmed.match(/(?:Running|Executing|Run)\s+(?:command:?\s+)?[`"'](.+?)[`"']/i);
+          const cmdMatch = trimmed.match(RE_CMD);
           if (cmdMatch) {
             send({ type: "thinking", action: "command", target: cmdMatch[1] });
           }

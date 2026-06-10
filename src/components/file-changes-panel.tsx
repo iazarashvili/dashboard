@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   FileText,
   FilePlus,
@@ -21,7 +21,7 @@ interface FileChangesPanelProps {
   changes: FileChange[];
 }
 
-export function FileChangesPanel({ changes }: FileChangesPanelProps) {
+export const FileChangesPanel = memo(function FileChangesPanel({ changes }: FileChangesPanelProps) {
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
 
   const totalAdded = changes.reduce((sum, c) => sum + c.additions, 0);
@@ -80,9 +80,14 @@ export function FileChangesPanel({ changes }: FileChangesPanelProps) {
                       <FilePen className="h-3.5 w-3.5 text-[#f59e0b] shrink-0" />
                     )}
 
-                    <span className="text-[11px] truncate flex-1 text-[#f1f5f9]">
-                      {file.path}
-                    </span>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="text-[11px] truncate text-[#f1f5f9]">
+                        {file.path.split(/[/\\]/).pop()}
+                      </span>
+                      <span className="text-[9px] truncate text-[#475569]">
+                        {file.path}
+                      </span>
+                    </div>
 
                     <span
                       className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
@@ -142,4 +147,4 @@ export function FileChangesPanel({ changes }: FileChangesPanelProps) {
       </div>
     </div>
   );
-}
+});

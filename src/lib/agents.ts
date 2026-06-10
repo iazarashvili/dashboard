@@ -66,6 +66,11 @@ export const agents: AgentConfig[] = [
     inputOptional: true,
     extraFields: [
       {
+        key: "projectPath",
+        label: "Project Path",
+        placeholder: "C:\\iLoOoo\\your-playwright-project",
+      },
+      {
         key: "testFile",
         label: "Test File",
         placeholder: "tests/pre-match/timeFilter.spec.ts",
@@ -118,6 +123,13 @@ export const agents: AgentConfig[] = [
     outputFolder: "full-flow-agent",
     inputLabel: "WSP ID(s)",
     inputPlaceholder: "WSP-2314, WSP-2315",
+    extraFields: [
+      {
+        key: "projectPath",
+        label: "Project Path",
+        placeholder: "C:\\iLoOoo\\your-playwright-project",
+      },
+    ],
     phases: [
       "Stage 1: Manual Recon",
       "Fetch Qase Case",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback, memo } from "react";
 import { Terminal, X, Download } from "lucide-react";
 
 export interface LogEntry {
@@ -61,13 +61,57 @@ function DownloadButton({ filePath }: { filePath: string }) {
   );
 }
 
-export function LogViewer({ logs, onClear }: LogViewerProps) {
+const LogLine = memo(function LogLine({ log }: { log: LogEntry }) {
+  if (log.message.startsWith("DOWNLOAD:")) {
+    const filePath = log.message.replace("DOWNLOAD:", "");
+    return (
+      <div className="flex gap-2 items-start leading-relaxed animate-fade-in">
+        <span className="text-[#374151] shrink-0 select-none">
+          {log.timestamp}
+        </span>
+        <span className="shrink-0" style={{ color: agentColors[log.agentId] || '#94a3b8' }}>
+          [{log.agentName}]
+        </span>
+        <DownloadButton filePath={filePath} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 leading-[1.5] animate-fade-in">
+      <span className="text-[#374151] shrink-0 select-none">
+        {log.timestamp}
+      </span>
+      <span className="shrink-0" style={{ color: agentColors[log.agentId] || '#94a3b8' }}>
+        [{log.agentName}]
+      </span>
+      <span style={{ color: typeColors[log.type] || '#94a3b8' }}>
+        {log.type === "phase" ? `>> ${log.message}` : log.message}
+      </span>
+    </div>
+  );
+});
+
+export const LogViewer = memo(function LogViewer({ logs, onClear }: LogViewerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Throttled auto-scroll — max once per 200ms
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+    if (scrollTimerRef.current) return;
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 200);
+  }, [logs.length]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -100,40 +144,11 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
               Agent output will appear here...
             </div>
           ) : (
-            logs.map((log, i) => {
-              if (log.message.startsWith("DOWNLOAD:")) {
-                const filePath = log.message.replace("DOWNLOAD:", "");
-                return (
-                  <div key={i} className="flex gap-2 items-start leading-relaxed animate-fade-in">
-                    <span className="text-[#374151] shrink-0 select-none">
-                      {log.timestamp}
-                    </span>
-                    <span className="shrink-0" style={{ color: agentColors[log.agentId] || '#94a3b8' }}>
-                      [{log.agentName}]
-                    </span>
-                    <DownloadButton filePath={filePath} />
-                  </div>
-                );
-              }
-
-              return (
-                <div key={i} className="flex gap-2 leading-[1.5] animate-fade-in">
-                  <span className="text-[#374151] shrink-0 select-none">
-                    {log.timestamp}
-                  </span>
-                  <span className="shrink-0" style={{ color: agentColors[log.agentId] || '#94a3b8' }}>
-                    [{log.agentName}]
-                  </span>
-                  <span style={{ color: typeColors[log.type] || '#94a3b8' }}>
-                    {log.type === "phase" ? `>> ${log.message}` : log.message}
-                  </span>
-                </div>
-              );
-            })
+            logs.map((log, i) => <LogLine key={i} log={log} />)
           )}
           <div ref={bottomRef} />
         </div>
       </div>
     </div>
   );
-}
+});

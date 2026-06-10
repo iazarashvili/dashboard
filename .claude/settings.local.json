@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat next.config.*)",
+      "Bash(curl:*)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(findstr /i node)",
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, StartTime\")",
+      "Bash(powershell -Command \"Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object {\\(\\\\$_.LocalPort -ge 3000\\) -and \\(\\\\$_.LocalPort -le 3010\\)} | Select-Object LocalAddress, LocalPort, OwningProcess\")",
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(npx next:*)",
+      "Bash(cd:*)",
+      "Bash(npm install:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)"
+    ]
+  }
+}

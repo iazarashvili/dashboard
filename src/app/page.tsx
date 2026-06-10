@@ -3,7 +3,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { AgentCard } from "@/components/agent-card";
 import { LogViewer, type LogEntry } from "@/components/log-viewer";
-import { LiveBrowser } from "@/components/live-browser";
 import { ThinkingPanel, type ThinkingStep } from "@/components/thinking-panel";
 import { FileChangesPanel, type FileChange } from "@/components/file-changes-panel";
 import { AgentFlow } from "@/components/agent-flow";
@@ -11,16 +10,13 @@ import { agents, type AgentStatus } from "@/lib/agents";
 import { Input } from "@/components/ui/input";
 import {
   Activity,
-  FolderOpen,
-  Check,
   Terminal,
-  Monitor,
   Brain,
   FileText,
   Workflow,
 } from "lucide-react";
 
-type RightTab = "logs" | "browser" | "thinking" | "files" | "flow";
+type RightTab = "logs" | "thinking" | "files" | "flow";
 
 interface AgentState {
   status: AgentStatus;
@@ -35,32 +31,11 @@ export default function Dashboard() {
       )
   );
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [projectPath, setProjectPath] = useState("");
-  const [pathSaved, setPathSaved] = useState(false);
-  const [browserScreenshots, setBrowserScreenshots] = useState<string[]>([]);
-  const [browserUrl, setBrowserUrl] = useState("");
-  const [browserActive, setBrowserActive] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
   const [activeTab, setActiveTab] = useState<RightTab>("logs");
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const abortControllers = useRef<Record<string, AbortController>>({});
-
-  useEffect(() => {
-    const saved = localStorage.getItem("agent-project-path");
-    if (saved) setProjectPath(saved);
-  }, []);
-
-  const handlePathChange = useCallback((value: string) => {
-    setProjectPath(value);
-    setPathSaved(false);
-  }, []);
-
-  const handlePathSave = useCallback(() => {
-    localStorage.setItem("agent-project-path", projectPath);
-    setPathSaved(true);
-    setTimeout(() => setPathSaved(false), 2000);
-  }, [projectPath]);
 
   const getTimestamp = () =>
     new Date().toLocaleTimeString("en-GB", {
@@ -69,12 +44,15 @@ export default function Dashboard() {
       second: "2-digit",
     });
 
+  const MAX_LOGS = 500;
+  const MAX_THINKING = 300;
+
   const addLog = useCallback(
     (agentId: string, agentName: string, type: LogEntry["type"], message: string) => {
-      setLogs((prev) => [
-        ...prev,
-        { timestamp: getTimestamp(), agentId, agentName, type, message },
-      ]);
+      setLogs((prev) => {
+        const next = [...prev, { timestamp: getTimestamp(), agentId, agentName, type, message }];
+        return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+      });
     },
     []
   );
@@ -91,10 +69,10 @@ export default function Dashboard() {
 
   const addThinkingStep = useCallback(
     (action: ThinkingStep["action"], target: string, detail?: string) => {
-      setThinkingSteps((prev) => [
-        ...prev,
-        { timestamp: getTimestamp(), action, target, detail },
-      ]);
+      setThinkingSteps((prev) => {
+        const next = [...prev, { timestamp: getTimestamp(), action, target, detail }];
+        return next.length > MAX_THINKING ? next.slice(-MAX_THINKING) : next;
+      });
     },
     []
   );
@@ -126,9 +104,6 @@ export default function Dashboard() {
 
       updateAgent(agentId, { status: "running", currentPhase: 0 });
       setActiveAgentId(agentId);
-      setBrowserActive(true);
-      setBrowserScreenshots([]);
-      setBrowserUrl("");
       setThinkingSteps([]);
       setFileChanges([]);
       addLog(agentId, agent.name, "info", `Starting with input: ${input}`);
@@ -138,7 +113,7 @@ export default function Dashboard() {
         const res = await fetch("/api/agent/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId, input, projectPath, extraFields }),
+          body: JSON.stringify({ agentId, input, extraFields }),
           signal: controller.signal,
         });
 
@@ -182,20 +157,8 @@ export default function Dashboard() {
                 addThinkingStep(event.action, event.target, event.detail);
               } else if (event.type === "file_change") {
                 addFileChange(event.path, event.action);
-              } else if (event.type === "screenshot") {
-                setBrowserScreenshots((prev) => [...prev, event.data]);
-              } else if (event.type === "screenshot_path") {
-                fetch(`/api/screenshot?path=${encodeURIComponent(event.path)}`)
-                  .then((r) => r.json())
-                  .then((r) => {
-                    if (r.data) setBrowserScreenshots((prev) => [...prev, r.data]);
-                  })
-                  .catch(() => {});
-              } else if (event.type === "browser_url") {
-                setBrowserUrl(event.url);
               } else if (event.type === "complete") {
                 updateAgent(agentId, { status: "completed" });
-                setBrowserActive(false);
                 addLog(agentId, agent.name, "success", "Agent completed successfully");
                 addThinkingStep("done", "Agent completed successfully");
                 if (agentId === "testbot") {
@@ -218,7 +181,6 @@ export default function Dashboard() {
           return prev;
         });
       } catch (err: unknown) {
-        setBrowserActive(false);
         if (err instanceof Error && err.name === "AbortError") {
           updateAgent(agentId, { status: "idle" });
           addLog(agentId, agent.name, "info", "Agent stopped by user");
@@ -235,7 +197,7 @@ export default function Dashboard() {
         delete abortControllers.current[agentId];
       }
     },
-    [addLog, updateAgent, addThinkingStep, addFileChange, projectPath]
+    [addLog, updateAgent, addThinkingStep, addFileChange]
   );
 
   const handleStop = useCallback(
@@ -261,7 +223,6 @@ export default function Dashboard() {
 
   const tabs: { id: RightTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "logs", label: "Logs", icon: <Terminal className="h-3.5 w-3.5" />, badge: logs.length },
-    { id: "browser", label: "Browser", icon: <Monitor className="h-3.5 w-3.5" />, badge: browserScreenshots.length },
     { id: "thinking", label: "Thinking", icon: <Brain className="h-3.5 w-3.5" />, badge: thinkingSteps.length },
     { id: "files", label: "Files", icon: <FileText className="h-3.5 w-3.5" />, badge: fileChanges.length },
     { id: "flow", label: "Flow", icon: <Workflow className="h-3.5 w-3.5" /> },
@@ -283,26 +244,6 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase text-[#64748b] tracking-[1.5px]">Project</span>
-              <div className="flex items-center gap-2">
-                <FolderOpen className="h-3.5 w-3.5 text-[#64748b] shrink-0" />
-                <input
-                  value={projectPath}
-                  onChange={(e) => handlePathChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handlePathSave();
-                  }}
-                  onBlur={handlePathSave}
-                  placeholder="C:\path\to\test-project"
-                  className="h-8 w-72 text-[13px] bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 text-[#f1f5f9] placeholder:text-[#374151] outline-none focus:border-[#f59e0b] transition-colors"
-                />
-                {pathSaved && (
-                  <Check className="h-3.5 w-3.5 text-[#10b981] shrink-0 animate-fade-in" />
-                )}
-              </div>
-            </div>
-            <div className="w-px h-5 bg-white/[0.08]" />
             <div className="flex items-center gap-2">
               <div
                 className={`w-2 h-2 rounded-full ${
@@ -371,13 +312,6 @@ export default function Dashboard() {
           <div className="flex-1 overflow-hidden">
             {activeTab === "logs" && (
               <LogViewer logs={logs} onClear={() => setLogs([])} />
-            )}
-            {activeTab === "browser" && (
-              <LiveBrowser
-                screenshots={browserScreenshots}
-                currentUrl={browserUrl}
-                isActive={browserActive}
-              />
             )}
             {activeTab === "thinking" && (
               <ThinkingPanel steps={thinkingSteps} isActive={runningCount > 0} />

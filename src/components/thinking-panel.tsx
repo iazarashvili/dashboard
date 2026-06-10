@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import {
   Brain,
   FileText,
@@ -27,27 +27,141 @@ interface ThinkingPanelProps {
   isActive: boolean;
 }
 
-const actionConfig: Record<
-  ThinkingStep["action"],
-  { icon: React.ReactNode; color: string; label: string }
-> = {
-  read: { icon: <FileText className="h-3.5 w-3.5" />, color: "#3b82f6", label: "READ" },
-  write: { icon: <Pencil className="h-3.5 w-3.5" />, color: "#10b981", label: "CREATE" },
-  edit: { icon: <Pencil className="h-3.5 w-3.5" />, color: "#f59e0b", label: "EDIT" },
-  search: { icon: <Search className="h-3.5 w-3.5" />, color: "#a855f7", label: "SEARCH" },
-  navigate: { icon: <Globe className="h-3.5 w-3.5" />, color: "#06b6d4", label: "NAVIGATE" },
-  command: { icon: <Terminal className="h-3.5 w-3.5" />, color: "#64748b", label: "RUN" },
-  decide: { icon: <Brain className="h-3.5 w-3.5" />, color: "#ec4899", label: "THINK" },
-  error: { icon: <AlertCircle className="h-3.5 w-3.5" />, color: "#ef4444", label: "ERROR" },
-  done: { icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: "#10b981", label: "DONE" },
+const actionIcons: Record<ThinkingStep["action"], React.ReactNode> = {
+  read: <FileText className="h-3.5 w-3.5" />,
+  write: <Pencil className="h-3.5 w-3.5" />,
+  edit: <Pencil className="h-3.5 w-3.5" />,
+  search: <Search className="h-3.5 w-3.5" />,
+  navigate: <Globe className="h-3.5 w-3.5" />,
+  command: <Terminal className="h-3.5 w-3.5" />,
+  decide: <Brain className="h-3.5 w-3.5" />,
+  error: <AlertCircle className="h-3.5 w-3.5" />,
+  done: <CheckCircle2 className="h-3.5 w-3.5" />,
 };
 
-export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
+const actionColors: Record<ThinkingStep["action"], string> = {
+  read: "#3b82f6",
+  write: "#10b981",
+  edit: "#f59e0b",
+  search: "#a855f7",
+  navigate: "#06b6d4",
+  command: "#64748b",
+  decide: "#ec4899",
+  error: "#ef4444",
+  done: "#10b981",
+};
+
+const actionLabels: Record<ThinkingStep["action"], string> = {
+  read: "READ",
+  write: "CREATE",
+  edit: "EDIT",
+  search: "SEARCH",
+  navigate: "NAVIGATE",
+  command: "RUN",
+  decide: "THINK",
+  error: "ERROR",
+  done: "DONE",
+};
+
+const StepRow = memo(function StepRow({
+  step,
+  isLatest,
+}: {
+  step: ThinkingStep;
+  index: number;
+  isLatest: boolean;
+}) {
+  const color = actionColors[step.action];
+  const icon = actionIcons[step.action];
+  const label = actionLabels[step.action];
+
+  return (
+    <div
+      className="group flex gap-3 relative rounded-lg px-1 py-2 transition-all duration-300 animate-fade-in"
+      style={{
+        background: isLatest ? 'rgba(236,72,153,0.05)' : undefined,
+      }}
+    >
+      {/* Node */}
+      <div className="relative z-10 shrink-0">
+        {isLatest ? (
+          <div
+            className="flex items-center justify-center w-[35px] h-[35px] rounded-full text-white"
+            style={{
+              background: color,
+              boxShadow: `0 0 15px color-mix(in srgb, ${color} 40%, transparent), 0 0 0 4px color-mix(in srgb, ${color} 20%, transparent)`,
+            }}
+          >
+            {icon}
+          </div>
+        ) : (
+          <div
+            className="flex items-center justify-center w-[35px] h-[35px] rounded-full"
+            style={{
+              background: `color-mix(in srgb, ${color} 15%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+              color: color,
+            }}
+          >
+            {icon}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 pt-1">
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[10px] font-bold tracking-wider"
+            style={{ color }}
+          >
+            {label}
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-[#374151]">
+            <Clock className="h-2.5 w-2.5" />
+            {step.timestamp}
+          </span>
+          {isLatest && (
+            <Zap className="h-3 w-3 text-[#ec4899]" style={{ animation: 'pulse-dot 1.2s infinite' }} />
+          )}
+        </div>
+
+        <div
+          className="mt-1 text-[11px] truncate"
+          style={{ color: isLatest ? '#f1f5f9' : 'rgba(241,245,249,0.7)' }}
+        >
+          {step.target}
+        </div>
+
+        {step.detail && (
+          <div className="mt-1 flex items-start gap-1.5 text-[10px] text-[#64748b]">
+            <ArrowRight className="h-3 w-3 shrink-0 mt-0.5 opacity-40" />
+            <span className="line-clamp-2 leading-relaxed">{step.detail}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+export const ThinkingPanel = memo(function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Throttled auto-scroll — max once per 200ms
+  useEffect(() => {
+    if (scrollTimerRef.current) return;
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 200);
+  }, [steps.length]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [steps]);
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
 
   const counts: Record<string, number> = {};
   steps.forEach((s) => {
@@ -80,15 +194,16 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
         </div>
         <div className="flex items-center gap-1.5">
           {Object.entries(counts).slice(0, 4).map(([action, count]) => {
-            const cfg = actionConfig[action as ThinkingStep["action"]];
-            if (!cfg) return null;
+            const color = actionColors[action as ThinkingStep["action"]];
+            const icon = actionIcons[action as ThinkingStep["action"]];
+            if (!color) return null;
             return (
               <span
                 key={action}
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] opacity-60"
-                style={{ color: cfg.color }}
+                style={{ color }}
               >
-                {cfg.icon}
+                {icon}
                 <span>{count}</span>
               </span>
             );
@@ -112,85 +227,14 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
               />
 
               <div className="space-y-1">
-                {steps.map((step, i) => {
-                  const config = actionConfig[step.action];
-                  const isLast = i === steps.length - 1;
-                  const isLatest = isLast && isActive;
-
-                  return (
-                    <div
-                      key={i}
-                      className="group flex gap-3 relative rounded-lg px-1 py-2 transition-all duration-300 animate-fade-in"
-                      style={{
-                        background: isLatest ? 'rgba(236,72,153,0.05)' : undefined,
-                      }}
-                    >
-                      {/* Node */}
-                      <div className="relative z-10 shrink-0">
-                        {isLatest ? (
-                          <div
-                            className="flex items-center justify-center w-[35px] h-[35px] rounded-full text-white"
-                            style={{
-                              background: config.color,
-                              boxShadow: `0 0 15px color-mix(in srgb, ${config.color} 40%, transparent), 0 0 0 4px color-mix(in srgb, ${config.color} 20%, transparent)`,
-                            }}
-                          >
-                            {config.icon}
-                          </div>
-                        ) : (
-                          <div
-                            className="flex items-center justify-center w-[35px] h-[35px] rounded-full"
-                            style={{
-                              background: `color-mix(in srgb, ${config.color} 15%, transparent)`,
-                              border: `1px solid color-mix(in srgb, ${config.color} 20%, transparent)`,
-                              color: config.color,
-                            }}
-                          >
-                            {config.icon}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0 pt-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="text-[10px] font-bold tracking-wider"
-                            style={{ color: config.color }}
-                          >
-                            {config.label}
-                          </span>
-                          <span className="flex items-center gap-1 text-[10px] text-[#374151]">
-                            <Clock className="h-2.5 w-2.5" />
-                            {step.timestamp}
-                          </span>
-                          {isLatest && (
-                            <Zap className="h-3 w-3 text-[#ec4899]" style={{ animation: 'pulse-dot 1.2s infinite' }} />
-                          )}
-                        </div>
-
-                        <div
-                          className="mt-1 text-[11px] truncate"
-                          style={{ color: isLatest ? '#f1f5f9' : 'rgba(241,245,249,0.7)' }}
-                        >
-                          {step.target}
-                        </div>
-
-                        {step.detail && (
-                          <div className="mt-1 flex items-start gap-1.5 text-[10px] text-[#64748b]">
-                            <ArrowRight className="h-3 w-3 shrink-0 mt-0.5 opacity-40" />
-                            <span className="line-clamp-2 leading-relaxed">{step.detail}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Step number */}
-                      <span className="text-[10px] text-[#374151] pt-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        #{i + 1}
-                      </span>
-                    </div>
-                  );
-                })}
+                {steps.map((step, i) => (
+                  <StepRow
+                    key={i}
+                    step={step}
+                    index={i}
+                    isLatest={i === steps.length - 1 && isActive}
+                  />
+                ))}
               </div>
               <div ref={bottomRef} />
             </div>
@@ -199,4 +243,4 @@ export function ThinkingPanel({ steps, isActive }: ThinkingPanelProps) {
       </div>
     </div>
   );
-}
+});

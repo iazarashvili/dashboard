@@ -2,7 +2,10 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_CHROMIUM_ARGS": "--disable-web-security"
+      }
     }
   }
 }
