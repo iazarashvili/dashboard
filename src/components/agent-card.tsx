@@ -212,18 +212,34 @@ export const AgentCard = memo(function AgentCard({
                   <label className="text-[10px] text-[#64748b] uppercase tracking-[1px] block mb-1">
                     {field.label}
                   </label>
-                  <input
-                    value={extraValues[field.key] || ""}
-                    onChange={(e) =>
-                      setExtraValues((prev) => ({
-                        ...prev,
-                        [field.key]: e.target.value,
-                      }))
-                    }
-                    placeholder={field.placeholder}
-                    className="w-full text-[11px] bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-[#f1f5f9] placeholder:text-[#374151] outline-none focus:border-[#f59e0b] transition-colors"
-                    disabled={isRunning}
-                  />
+                  {field.type === "textarea" ? (
+                    <textarea
+                      value={extraValues[field.key] || ""}
+                      onChange={(e) =>
+                        setExtraValues((prev) => ({
+                          ...prev,
+                          [field.key]: e.target.value,
+                        }))
+                      }
+                      placeholder={field.placeholder}
+                      rows={2}
+                      className="w-full text-[11px] bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-[#f1f5f9] placeholder:text-[#374151] outline-none focus:border-[#f59e0b] transition-colors resize-y min-h-[36px]"
+                      disabled={isRunning}
+                    />
+                  ) : (
+                    <input
+                      value={extraValues[field.key] || ""}
+                      onChange={(e) =>
+                        setExtraValues((prev) => ({
+                          ...prev,
+                          [field.key]: e.target.value,
+                        }))
+                      }
+                      placeholder={field.placeholder}
+                      className="w-full text-[11px] bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-[#f1f5f9] placeholder:text-[#374151] outline-none focus:border-[#f59e0b] transition-colors"
+                      disabled={isRunning}
+                    />
+                  )}
                 </div>
               ))}
             </div>

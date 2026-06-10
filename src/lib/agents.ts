@@ -6,6 +6,7 @@ export interface ExtraField {
   key: string;
   label: string;
   placeholder: string;
+  type?: "text" | "textarea";
 }
 
 export interface AgentConfig {
@@ -42,6 +43,12 @@ export const agents: AgentConfig[] = [
         key: "casesJsonFile",
         label: "Cases JSON File",
         placeholder: "C:\\path\\to\\cases.json",
+      },
+      {
+        key: "instructions",
+        label: "დამატებითი მითითებები",
+        placeholder: "მაგ: მხოლოდ login flow შეამოწმე, ქართული ენა...",
+        type: "textarea",
       },
     ],
     phases: [
@@ -90,6 +97,12 @@ export const agents: AgentConfig[] = [
         label: "Page Object File",
         placeholder: "pages/pre-match/timeFilterPage.ts",
       },
+      {
+        key: "instructions",
+        label: "დამატებითი მითითებები",
+        placeholder: "მაგ: არსებულ ფაილებს დაამატე, page object pattern...",
+        type: "textarea",
+      },
     ],
     phases: [
       "Read manual_output.json",
@@ -109,6 +122,14 @@ export const agents: AgentConfig[] = [
     promptFile: ".claude/agents/fix-test.md",
     inputLabel: "WSP ID / Spec File / Error Output",
     inputPlaceholder: "WSP-2314 or tests/pre-match/games.spec.ts",
+    extraFields: [
+      {
+        key: "instructions",
+        label: "დამატებითი მითითებები",
+        placeholder: "მაგ: სელექტორი შეიცვალა, timeout გაზარდე...",
+        type: "textarea",
+      },
+    ],
     phases: [
       "Parse Failures",
       "Read & Understand",
@@ -133,6 +154,12 @@ export const agents: AgentConfig[] = [
         key: "projectPath",
         label: "Project Path",
         placeholder: "C:\\iLoOoo\\your-playwright-project",
+      },
+      {
+        key: "instructions",
+        label: "დამატებითი მითითებები",
+        placeholder: "მაგ: მხოლოდ pre-match სექცია, API ტესტებიც...",
+        type: "textarea",
       },
     ],
     phases: [
@@ -172,6 +199,12 @@ export const agents: AgentConfig[] = [
         key: "htmlPath",
         label: "HTML File Path",
         placeholder: "C:\\Screenshots\\registration.html",
+      },
+      {
+        key: "instructions",
+        label: "დამატებითი მითითებები",
+        placeholder: "მაგ: ავტორიზაცია გაიარე, მხოლოდ footer სექცია...",
+        type: "textarea",
       },
     ],
     phases: [

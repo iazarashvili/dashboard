@@ -103,6 +103,9 @@ export async function POST(req: NextRequest) {
     extraContext += `\n\nSave the generated cases.json file at: ${path.join(agentOutputDir!, "cases.json")}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
   }
 
+  // User instructions from the textarea field
+  const userInstructions = (extraFields as Record<string, string>)?.instructions?.trim();
+
   const prompt = `Read the agent instructions from "${promptFile}" and execute the task with this input: ${input}
 
 CRITICAL PROJECT CONTEXT:
@@ -111,7 +114,7 @@ CRITICAL PROJECT CONTEXT:
 - NEVER create files outside of "${workDir}"
 - Use ABSOLUTE paths based on "${workDir}" when reading/writing files
 - Example: "${path.join(workDir, "tests", "example.spec.ts")}"
-${extraContext}`;
+${extraContext}${userInstructions ? `\n\nADDITIONAL USER INSTRUCTIONS (follow these carefully):\n${userInstructions}` : ""}`;
 
   const encoder = new TextEncoder();
   let phaseIndex = 0;

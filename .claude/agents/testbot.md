@@ -221,6 +221,21 @@ Add a `design_insights` array explaining optimization decisions:
 }
 ```
 
+## Site Authorization
+
+If the page requires login to access (e.g., pages behind authentication), use Playwright MCP to authorize:
+
+1. Navigate to the login page
+2. Use credentials from environment variables:
+   - Username: `$SPORT_USERNAME` (env variable)
+   - Password: `$SPORT_USER_PASSWORD` (env variable)
+3. Complete the login flow
+4. Then navigate to the target page for analysis
+
+To read env variables, use Bash: `echo $SPORT_USERNAME`
+
+If the page is publicly accessible, skip authorization.
+
 ## Rules
 
 - Generate **20-35 optimized test cases** (not more — quality over quantity)
