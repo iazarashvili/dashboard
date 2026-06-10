@@ -13,7 +13,9 @@
       "Bash(cd:*)",
       "Bash(npm install:*)",
       "Bash(tasklist:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Read(//c/iLoOoo/qa-ai-agents/automatization-tests/**)",
+      "Read(//c/iLoOoo/qa-ai-agents/.claude/**)"
     ]
   }
 }

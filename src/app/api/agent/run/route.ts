@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Agent not found" }, { status: 404 });
   }
 
-  // Agent prompt files: use AGENTS_ROOT env (Docker) or parent of cwd
+  // Agent prompt files: inside dashboard/.claude/agents/
   const agentsRoot = process.env.AGENTS_ROOT || path.resolve(process.cwd(), "..");
-  const promptFile = path.join(agentsRoot, agent.promptFile);
+  const promptFile = path.join(process.cwd(), agent.promptFile);
 
   // Working directory: from agent's extraFields.projectPath, then DEFAULT_PROJECT_PATH, then agentsRoot
   const agentProjectPath = (extraFields as Record<string, string>)?.projectPath;
@@ -57,20 +57,25 @@ export async function POST(req: NextRequest) {
     extraContext += `\n\nWhen working with cases from Manual QA's cases.json, also check for page screenshots in: ${helpScreensDir}\nIf screenshot files exist there (.png, .jpg, .webp), VIEW them — they show the actual page elements that the test cases refer to and will help you find the correct selectors.`;
     extraContext += `\n\nSave the generated manual_output.json file at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
   } else if (agentId === "write-test" || agentId === "full-flow") {
-    // write-test reads from qase-io-agent output; full-flow writes its own
-    const qaseOutputDir = path.join(agentsDataRoot, "qase-io-agent");
-    const readManualOutput = agentId === "write-test"
-      ? path.join(qaseOutputDir, "manual_output.json")
-      : manualOutputPath;
+    const manualQaCasesPath = path.join(agentsDataRoot, "manual-qa-agent", "cases.json");
 
-    extraContext += `\n\nThe manual_output.json file is located at: ${readManualOutput}`;
+    // Default source: manual-qa-agent/cases.json
+    // Only use qase-io-agent/manual_output.json if user explicitly provides a different JSON path
+    const fields = extraFields as Record<string, string> | undefined;
+    const hasCustomJson = fields?.casesJsonFile?.trim();
+
+    if (hasCustomJson) {
+      extraContext += `\n\nRead test cases from the provided JSON file: ${fields!.casesJsonFile}`;
+    } else {
+      extraContext += `\n\nRead test cases from: ${manualQaCasesPath}`;
+      extraContext += `\nThis is the PRIMARY and ONLY source for test cases. Do NOT look for other JSON files.`;
+    }
 
     if (agentId === "full-flow" && agentOutputDir) {
       extraContext += `\nSave the generated manual_output.json at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
     }
 
     // Add file path instructions from extra fields
-    const fields = extraFields as Record<string, string> | undefined;
     if (fields) {
       const filePaths: string[] = [];
       if (fields.testFile) filePaths.push(`- Test spec file (EXISTING): ${path.join(workDir, fields.testFile)} — ADD the new test code to this file`);
