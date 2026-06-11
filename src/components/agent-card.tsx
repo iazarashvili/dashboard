@@ -212,7 +212,37 @@ export const AgentCard = memo(function AgentCard({
                   <label className="text-[10px] text-[#64748b] uppercase tracking-[1px] block mb-1">
                     {field.label}
                   </label>
-                  {field.type === "textarea" ? (
+                  {field.type === "toggle-group" ? (
+                    <div className="flex gap-1.5">
+                      {field.options!.map((opt) => {
+                        const selected = (extraValues[field.key] || "").split(",").filter(Boolean).includes(opt.value);
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            disabled={isRunning}
+                            onClick={() => {
+                              setExtraValues((prev) => {
+                                const current = (prev[field.key] || "").split(",").filter(Boolean);
+                                const next = selected
+                                  ? current.filter((v) => v !== opt.value)
+                                  : [...current, opt.value];
+                                return { ...prev, [field.key]: next.join(",") };
+                              });
+                            }}
+                            className="flex-1 text-[10px] font-semibold py-1.5 px-2 rounded-lg border transition-all uppercase tracking-[0.5px]"
+                            style={{
+                              background: selected ? 'rgba(6,182,212,0.15)' : 'rgba(255,255,255,0.04)',
+                              borderColor: selected ? 'rgba(6,182,212,0.4)' : 'rgba(255,255,255,0.1)',
+                              color: selected ? '#06b6d4' : '#64748b',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : field.type === "textarea" ? (
                     <textarea
                       value={extraValues[field.key] || ""}
                       onChange={(e) =>

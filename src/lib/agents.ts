@@ -6,7 +6,8 @@ export interface ExtraField {
   key: string;
   label: string;
   placeholder: string;
-  type?: "text" | "textarea";
+  type?: "text" | "textarea" | "toggle-group";
+  options?: { value: string; label: string }[];
 }
 
 export interface AgentConfig {
@@ -185,6 +186,16 @@ export const agents: AgentConfig[] = [
     inputPlaceholder: "Registration Page, Login Modal...",
     inputOptional: false,
     extraFields: [
+      {
+        key: "platform",
+        label: "Platform",
+        placeholder: "",
+        type: "toggle-group",
+        options: [
+          { value: "web", label: "Web (1920×1080)" },
+          { value: "mobile", label: "Mobile (390×844)" },
+        ],
+      },
       {
         key: "pageUrl",
         label: "Page URL",

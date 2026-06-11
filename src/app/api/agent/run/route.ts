@@ -94,6 +94,26 @@ export async function POST(req: NextRequest) {
       if (fields.pageUrl) extraContext += `\n\nPage URL to analyze: ${fields.pageUrl}`;
       if (fields.screenshotPath) extraContext += `\nScreenshot file to view: ${fields.screenshotPath}`;
       if (fields.htmlPath) extraContext += `\nHTML file to read: ${fields.htmlPath}`;
+
+      // Platform / viewport selection
+      const platforms = (fields.platform || "").split(",").filter(Boolean);
+      if (platforms.length === 0) {
+        extraContext += `\n\nPLATFORM: Generate test cases for BOTH viewports:`;
+        extraContext += `\n- Web Desktop: 1920×1080`;
+        extraContext += `\n- Mobile: 390×844`;
+        extraContext += `\nInclude responsive/adaptive behavior tests comparing both viewports.`;
+      } else if (platforms.includes("web") && platforms.includes("mobile")) {
+        extraContext += `\n\nPLATFORM: Generate test cases for BOTH viewports:`;
+        extraContext += `\n- Web Desktop: 1920×1080`;
+        extraContext += `\n- Mobile: 390×844`;
+        extraContext += `\nInclude responsive/adaptive behavior tests comparing both viewports.`;
+      } else if (platforms.includes("web")) {
+        extraContext += `\n\nPLATFORM: Generate test cases ONLY for Web Desktop viewport (1920×1080).`;
+        extraContext += `\nDo NOT include mobile-specific test cases. Focus on desktop layout, hover states, and wide-screen behavior.`;
+      } else if (platforms.includes("mobile")) {
+        extraContext += `\n\nPLATFORM: Generate test cases ONLY for Mobile viewport (390×844).`;
+        extraContext += `\nDo NOT include desktop-specific test cases. Focus on touch interactions, scroll behavior, and mobile layout.`;
+      }
     }
     const helpDataDir = path.join(agentsRoot, "agents-help-data");
     extraContext += `\n\nAuto-detect helper data directory: ${helpDataDir}`;
