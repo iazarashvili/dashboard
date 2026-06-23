@@ -56,6 +56,16 @@ export async function POST(req: NextRequest) {
     const helpScreensDir = path.join(agentsRoot, "agents-help-data", "screenshots");
     extraContext += `\n\nWhen working with cases from Manual QA's cases.json, also check for page screenshots in: ${helpScreensDir}\nIf screenshot files exist there (.png, .jpg, .webp), VIEW them — they show the actual page elements that the test cases refer to and will help you find the correct selectors.`;
     extraContext += `\n\nSave the generated manual_output.json file at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
+
+    // Platform context for Qase IO Agent
+    const manualPlatforms = (fields?.platform || "").split(",").filter(Boolean);
+    if (manualPlatforms.length === 0 || (manualPlatforms.includes("web") && manualPlatforms.includes("mobile"))) {
+      extraContext += `\n\nPLATFORM: Perform recon for BOTH platforms — Web Desktop (1920×1080) AND Mobile (390×844). Discover selectors and behavior for both viewports.`;
+    } else if (manualPlatforms.includes("web")) {
+      extraContext += `\n\nPLATFORM: Web Desktop only (1920×1080). Focus on desktop layout and selectors. Do NOT include mobile-specific selectors or behavior.`;
+    } else if (manualPlatforms.includes("mobile")) {
+      extraContext += `\n\nPLATFORM: Mobile only (390×844). Focus on mobile layout, touch interactions, and mobile-specific selectors. Do NOT include desktop-specific selectors or behavior.`;
+    }
   } else if (agentId === "write-test" || agentId === "full-flow") {
     const manualQaCasesPath = path.join(agentsDataRoot, "manual-qa-agent", "cases.json");
 
@@ -73,6 +83,18 @@ export async function POST(req: NextRequest) {
 
     if (agentId === "full-flow" && agentOutputDir) {
       extraContext += `\nSave the generated manual_output.json at: ${manualOutputPath}\nCreate the directory "${agentOutputDir}" if it does not exist.`;
+    }
+
+    // Platform context for Write Test Agent
+    if (agentId === "write-test" && fields) {
+      const writePlatforms = (fields.platform || "").split(",").filter(Boolean);
+      if (writePlatforms.length === 0 || (writePlatforms.includes("web") && writePlatforms.includes("mobile"))) {
+        extraContext += `\n\nPLATFORM: Generate Playwright tests for BOTH platforms — Web Desktop (1920×1080) AND Mobile (390×844). Use appropriate viewport configuration for each.`;
+      } else if (writePlatforms.includes("web")) {
+        extraContext += `\n\nPLATFORM: Web Desktop only. Generate Playwright tests for viewport 1920×1080. Do NOT add mobile device emulation or touch-specific interactions.`;
+      } else if (writePlatforms.includes("mobile")) {
+        extraContext += `\n\nPLATFORM: Mobile only. Generate Playwright tests using mobile device emulation (390×844, e.g. iPhone 14). Use touch-friendly interactions and mobile-specific selectors.`;
+      }
     }
 
     // Add file path instructions from extra fields

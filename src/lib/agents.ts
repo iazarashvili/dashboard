@@ -41,6 +41,16 @@ export const agents: AgentConfig[] = [
     inputOptional: true,
     extraFields: [
       {
+        key: "platform",
+        label: "Platform",
+        placeholder: "",
+        type: "toggle-group",
+        options: [
+          { value: "web", label: "Web (1920×1080)" },
+          { value: "mobile", label: "Mobile (390×844)" },
+        ],
+      },
+      {
         key: "casesJsonFile",
         label: "Cases JSON File",
         placeholder: "C:\\path\\to\\cases.json",
@@ -73,6 +83,16 @@ export const agents: AgentConfig[] = [
     inputPlaceholder: "WSP-2314 or just press Run",
     inputOptional: true,
     extraFields: [
+      {
+        key: "platform",
+        label: "Platform",
+        placeholder: "",
+        type: "toggle-group",
+        options: [
+          { value: "web", label: "Web (1920×1080)" },
+          { value: "mobile", label: "Mobile (390×844)" },
+        ],
+      },
       {
         key: "casesJsonFile",
         label: "Cases JSON File (optional)",
