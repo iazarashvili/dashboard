@@ -201,17 +201,37 @@ export default function Dashboard() {
   );
 
   const handleStop = useCallback(
-    (agentId: string) => {
-      const controller = abortControllers.current[agentId];
-      if (controller) {
-        controller.abort();
-      }
+    async (agentId: string) => {
       const agent = agents.find((a) => a.id === agentId);
       if (agent) {
         addLog(agentId, agent.name, "info", "Stopping agent...");
       }
+
+      // Kill the server-side process via stop API
+      try {
+        await fetch("/api/agent/stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId }),
+        });
+      } catch {
+        // ignore fetch errors
+      }
+
+      // Abort the client-side SSE connection
+      const controller = abortControllers.current[agentId];
+      if (controller) {
+        controller.abort();
+        delete abortControllers.current[agentId];
+      }
+
+      // Immediately update UI to idle
+      updateAgent(agentId, { status: "idle" });
+      if (agent) {
+        addLog(agentId, agent.name, "info", "Agent stopped by user");
+      }
     },
-    [addLog]
+    [addLog, updateAgent]
   );
 
   const runningCount = Object.values(agentStates).filter(

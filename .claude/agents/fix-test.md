@@ -223,6 +223,7 @@ npx playwright test <spec-file-path> --grep "<test-name-or-WSP-ID>" --headed
 - **Locators go in locators/ files**, not inline in page objects or tests.
 - **New Georgian text** goes in `data/texts.ts`.
 - **Imports** in tests must be from `config/baseConfigFixtures`, never from `@playwright/test`.
+- **Follow the shared `playwright-best-practices.md`** (Playwright + TypeScript best practices) for any code you touch.
 
 ### Decision Rules
 - If a single selector change fixes multiple tests → fix the locator file only

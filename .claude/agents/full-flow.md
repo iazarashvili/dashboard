@@ -61,4 +61,4 @@ After Manual completes its task:
 - **Credentials:** `data/users.ts`
 - **Never use `page.waitForTimeout()`**
 
-For full conventions, refer to CLAUDE.md.
+For full conventions, refer to CLAUDE.md and the shared `playwright-best-practices.md` (Playwright + TypeScript best practices).

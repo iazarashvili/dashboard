@@ -89,7 +89,10 @@ For each match:
 
 ### 3. Site Authorization
 
-Access pre-prod.crocobet.com via Playwright MCP server.
+Access the site via Playwright MCP server using the **BASE URL** provided in the platform context above.
+- If no BASE URL was provided, default to `https://pre-prod.crocobet.com/`
+- For Mobile platform, always use `https://m.crocobet.com/`
+- For Web Desktop, always use `https://crocobet.com/`
 
 Login using credentials from `.env`: `SPORT_USERNAME` / `SPORT_USER_PASSWORD`.
 

@@ -89,4 +89,4 @@ test.describe("Feature name", () => {
 });
 ```
 
-For full conventions, refer to CLAUDE.md.
+For full conventions, refer to CLAUDE.md and the shared `playwright-best-practices.md` (Playwright + TypeScript best practices).

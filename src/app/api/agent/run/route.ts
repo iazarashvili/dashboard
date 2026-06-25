@@ -1,7 +1,14 @@
 import { NextRequest } from "next/server";
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import { agents } from "@/lib/agents";
 import path from "path";
+
+// Global process registry for stop support
+const runningProcesses = new Map<string, ChildProcess>();
+
+export function getRunningProcesses() {
+  return runningProcesses;
+}
 
 export const maxDuration = 300;
 
@@ -35,6 +42,20 @@ export async function POST(req: NextRequest) {
   // Build the claude command — inject context based on agent type
   let extraContext = "";
 
+  // Shared Playwright + TypeScript best practices for code-generating agents.
+  // These agents run with cwd set to the test project, so reference the file by
+  // absolute path (it lives alongside the other agent prompts in this repo).
+  const codeAgents = new Set(["write-test", "full-flow", "fix-test"]);
+  if (codeAgents.has(agentId)) {
+    const bestPracticesFile = path.join(
+      process.cwd(),
+      ".claude",
+      "agents",
+      "playwright-best-practices.md"
+    );
+    extraContext += `\n\nBEST PRACTICES: Before writing or fixing any test code, READ "${bestPracticesFile}" and strictly follow the Playwright + TypeScript conventions it defines. When those rules conflict with this project's architecture, the project architecture wins.`;
+  }
+
   // agents-data output directory for this agent
   const agentsDataRoot = path.join(agentsRoot, "agents-data");
   const agentOutputDir = agent.outputFolder
@@ -61,10 +82,13 @@ export async function POST(req: NextRequest) {
     const manualPlatforms = (fields?.platform || "").split(",").filter(Boolean);
     if (manualPlatforms.length === 0 || (manualPlatforms.includes("web") && manualPlatforms.includes("mobile"))) {
       extraContext += `\n\nPLATFORM: Perform recon for BOTH platforms — Web Desktop (1920×1080) AND Mobile (390×844). Discover selectors and behavior for both viewports.`;
+      extraContext += `\nBASE URLs: Web Desktop → https://crocobet.com/ | Mobile → https://m.crocobet.com/`;
     } else if (manualPlatforms.includes("web")) {
       extraContext += `\n\nPLATFORM: Web Desktop only (1920×1080). Focus on desktop layout and selectors. Do NOT include mobile-specific selectors or behavior.`;
+      extraContext += `\nBASE URL: https://crocobet.com/ — use this as the base URL for all navigation.`;
     } else if (manualPlatforms.includes("mobile")) {
       extraContext += `\n\nPLATFORM: Mobile only (390×844). Focus on mobile layout, touch interactions, and mobile-specific selectors. Do NOT include desktop-specific selectors or behavior.`;
+      extraContext += `\nBASE URL: https://m.crocobet.com/ — use this MOBILE base URL for all navigation. Do NOT use https://crocobet.com/.`;
     }
   } else if (agentId === "write-test" || agentId === "full-flow") {
     const manualQaCasesPath = path.join(agentsDataRoot, "manual-qa-agent", "cases.json");
@@ -201,6 +225,9 @@ ${extraContext}${userInstructions ? `\n\nADDITIONAL USER INSTRUCTIONS (follow th
         },
       });
 
+      // Track the process for stop support
+      runningProcesses.set(agentId, proc);
+
       // Write prompt to stdin and close it
       proc.stdin.write(prompt);
       proc.stdin.end();
@@ -275,6 +302,7 @@ ${extraContext}${userInstructions ? `\n\nADDITIONAL USER INSTRUCTIONS (follow th
       });
 
       proc.on("close", (code) => {
+        runningProcesses.delete(agentId);
         if (code === 0) {
           send({ type: "complete", message: "Agent finished" });
         } else {
