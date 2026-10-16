@@ -8,17 +8,39 @@ import {
   formatCountdown,
   type TradingSession,
 } from "@/lib/sessions";
-import { Clock, Bell, BellOff, Globe, MapPin, Zap, Timer } from "lucide-react";
+import { Bell, BellOff, Globe, MapPin, Zap, Timer, AlertTriangle, Newspaper } from "lucide-react";
+
+interface NewsEvent {
+  title: string;
+  country: string;
+  date: string;
+  forecast: string;
+  previous: string;
+}
 
 export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [telegramStatus, setTelegramStatus] = useState<"unknown" | "ok" | "error">("unknown");
+  const [newsEvents, setNewsEvents] = useState<NewsEvent[]>([]);
   const sentNotifications = useRef<Set<string>>(new Set());
 
   // Update clock every second
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fetch high-impact news
+  useEffect(() => {
+    const fetchNews = () => {
+      fetch("/api/news")
+        .then((r) => r.json())
+        .then((d) => setNewsEvents(d.events ?? []))
+        .catch(() => {});
+    };
+    fetchNews();
+    const id = setInterval(fetchNews, 5 * 60 * 1000); // refresh every 5 min
     return () => clearInterval(id);
   }, []);
 
@@ -223,6 +245,26 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6">
+        {/* High Impact News */}
+        {newsEvents.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="h-3.5 w-3.5 text-[#ef4444]" />
+              <h2 className="text-[13px] font-bold text-[#ef4444] uppercase tracking-[1px]">
+                High Impact News This Week
+              </h2>
+              <span className="text-[10px] bg-[#ef4444]/20 text-[#ef4444] px-2 py-0.5 rounded font-bold">
+                {newsEvents.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+              {newsEvents.map((event, i) => (
+                <NewsCard key={`${event.title}-${event.date}-${i}`} event={event} now={now} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Active Sessions */}
         {activeSessions.length > 0 && (
           <div className="mb-8">
@@ -422,6 +464,112 @@ function SessionProgress({
             boxShadow: `0 0 8px ${session.color}`,
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  USD: "\u{1F1FA}\u{1F1F8}",
+  EUR: "\u{1F1EA}\u{1F1FA}",
+  GBP: "\u{1F1EC}\u{1F1E7}",
+  JPY: "\u{1F1EF}\u{1F1F5}",
+  AUD: "\u{1F1E6}\u{1F1FA}",
+  CAD: "\u{1F1E8}\u{1F1E6}",
+  CHF: "\u{1F1E8}\u{1F1ED}",
+  NZD: "\u{1F1F3}\u{1F1FF}",
+  CNY: "\u{1F1E8}\u{1F1F3}",
+};
+
+function NewsCard({ event, now }: { event: NewsEvent; now: Date }) {
+  const eventDate = new Date(event.date);
+  const isPast = eventDate.getTime() < now.getTime();
+  const isToday =
+    eventDate.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+  const isSoon =
+    !isPast && eventDate.getTime() - now.getTime() < 60 * 60 * 1000;
+
+  // Georgian time (UTC+4)
+  const geoDate = new Date(eventDate.getTime() + 4 * 60 * 60 * 1000);
+  const geoTimeStr = geoDate.toISOString().slice(11, 16);
+
+  // NY time
+  const nyTimeStr = eventDate.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/New_York",
+  });
+
+  const dayStr = eventDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "America/New_York",
+  });
+
+  const flag = COUNTRY_FLAGS[event.country] ?? "";
+
+  return (
+    <div
+      className={`rounded-lg border p-3 transition-all ${
+        isSoon
+          ? "border-[#ef4444]/40 bg-[#ef4444]/[0.08] shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+          : isPast
+          ? "border-white/[0.04] bg-white/[0.01] opacity-40"
+          : isToday
+          ? "border-[#f59e0b]/30 bg-[#f59e0b]/[0.05]"
+          : "border-white/[0.06] bg-white/[0.02]"
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px]">{flag}</span>
+          <span className="text-[11px] font-bold text-[#94a3b8] uppercase">
+            {event.country}
+          </span>
+          {isSoon && (
+            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#ef4444]/20 text-[#ef4444] animate-pulse">
+              SOON
+            </span>
+          )}
+          {isPast && (
+            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-white/[0.05] text-[#64748b]">
+              DONE
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-[#64748b]">{dayStr}</span>
+      </div>
+
+      <h4 className="text-[13px] font-semibold text-[#f1f5f9] mb-2">
+        {event.title}
+      </h4>
+
+      <div className="flex gap-4 mb-2">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-[#64748b] uppercase">GEO:</span>
+          <span className="text-[12px] font-mono font-semibold text-[#f1f5f9]">
+            {geoTimeStr}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-[#64748b] uppercase">NY:</span>
+          <span className="text-[12px] font-mono font-semibold text-[#94a3b8]">
+            {nyTimeStr}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex gap-4 text-[11px]">
+        <div>
+          <span className="text-[#64748b]">Forecast: </span>
+          <span className="text-[#f59e0b] font-semibold">{event.forecast || "—"}</span>
+        </div>
+        <div>
+          <span className="text-[#64748b]">Previous: </span>
+          <span className="text-[#94a3b8] font-semibold">{event.previous || "—"}</span>
+        </div>
       </div>
     </div>
   );
