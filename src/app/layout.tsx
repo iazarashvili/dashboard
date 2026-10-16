@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-jetbrains",
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "QA Agent System",
-  description: "QA Automation Agents — Playwright Test Suite",
+  title: "Trading Sessions — Killzones",
+  description: "Forex & Index Session Monitor with Telegram Alerts",
 };
 
 export default function RootLayout({
@@ -20,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark h-full antialiased ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`dark h-full antialiased ${geistMono.variable}`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

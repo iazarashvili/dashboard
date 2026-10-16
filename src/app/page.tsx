@@ -1,355 +1,377 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { AgentCard } from "@/components/agent-card";
-import { LogViewer, type LogEntry } from "@/components/log-viewer";
-import { ThinkingPanel, type ThinkingStep } from "@/components/thinking-panel";
-import { FileChangesPanel, type FileChange } from "@/components/file-changes-panel";
-import { AgentFlow } from "@/components/agent-flow";
-import { agents, type AgentStatus } from "@/lib/agents";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Activity,
-  Terminal,
-  Brain,
-  FileText,
-  Workflow,
-} from "lucide-react";
-
-type RightTab = "logs" | "thinking" | "files" | "flow";
-
-interface AgentState {
-  status: AgentStatus;
-  currentPhase: number;
-}
+  sessions,
+  isSessionActive,
+  minutesUntilSession,
+  formatCountdown,
+  type TradingSession,
+} from "@/lib/sessions";
+import { Clock, Bell, BellOff, Globe, MapPin, Zap, Timer } from "lucide-react";
 
 export default function Dashboard() {
-  const [agentStates, setAgentStates] = useState<Record<string, AgentState>>(
-    () =>
-      Object.fromEntries(
-        agents.map((a) => [a.id, { status: "idle" as AgentStatus, currentPhase: 0 }])
-      )
-  );
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
-  const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
-  const [activeTab, setActiveTab] = useState<RightTab>("logs");
-  const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
-  const abortControllers = useRef<Record<string, AbortController>>({});
+  const [now, setNow] = useState(() => new Date());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [telegramStatus, setTelegramStatus] = useState<"unknown" | "ok" | "error">("unknown");
+  const sentNotifications = useRef<Set<string>>(new Set());
 
-  const getTimestamp = () =>
-    new Date().toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
+  // Update clock every second
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Check telegram config on mount
+  useEffect(() => {
+    fetch("/api/telegram/notify")
+      .then((r) => r.json())
+      .then((d) => setTelegramStatus(d.configured ? "ok" : "error"))
+      .catch(() => setTelegramStatus("error"));
+  }, []);
+
+  const utcHour = now.getUTCHours();
+  const utcMinute = now.getUTCMinutes();
+
+  // Georgian time (UTC+4)
+  const geoTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+  const geoStr = geoTime.toISOString().slice(11, 19);
+
+  // NY time (UTC-5)
+  const nyTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  const nyStr = nyTime.toISOString().slice(11, 19);
+
+  // UTC time
+  const utcStr = now.toISOString().slice(11, 19);
+
+  // Send telegram notification
+  const sendNotification = useCallback(async (session: TradingSession) => {
+    try {
+      await fetch("/api/telegram/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionName: session.name,
+          georgianTime: session.georgianTime,
+          nyTime: session.nyTime,
+          description: session.description,
+        }),
+      });
+    } catch {
+      // silent fail
+    }
+  }, []);
+
+  // Check for session opens and send notifications
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+
+    sessions.forEach((session) => {
+      const active = isSessionActive(session, utcHour);
+      const key = `${session.id}-${utcHour}`;
+
+      if (active && !sentNotifications.current.has(key)) {
+        // Only notify at the exact start hour
+        if (utcHour === session.utcStart && utcMinute < 2) {
+          sentNotifications.current.add(key);
+          sendNotification(session);
+        }
+      }
     });
+  }, [utcHour, utcMinute, notificationsEnabled, sendNotification]);
 
-  const MAX_LOGS = 500;
-  const MAX_THINKING = 300;
-
-  const addLog = useCallback(
-    (agentId: string, agentName: string, type: LogEntry["type"], message: string) => {
-      setLogs((prev) => {
-        const next = [...prev, { timestamp: getTimestamp(), agentId, agentName, type, message }];
-        return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
-      });
-    },
-    []
-  );
-
-  const updateAgent = useCallback(
-    (agentId: string, update: Partial<AgentState>) => {
-      setAgentStates((prev) => ({
-        ...prev,
-        [agentId]: { ...prev[agentId], ...update },
-      }));
-    },
-    []
-  );
-
-  const addThinkingStep = useCallback(
-    (action: ThinkingStep["action"], target: string, detail?: string) => {
-      setThinkingSteps((prev) => {
-        const next = [...prev, { timestamp: getTimestamp(), action, target, detail }];
-        return next.length > MAX_THINKING ? next.slice(-MAX_THINKING) : next;
-      });
-    },
-    []
-  );
-
-  const addFileChange = useCallback(
-    (path: string, action: "created" | "modified") => {
-      setFileChanges((prev) => {
-        const existing = prev.find((f) => f.path === path);
-        if (existing) {
-          return prev.map((f) =>
-            f.path === path
-              ? { ...f, action, additions: f.additions + 1 }
-              : f
-          );
-        }
-        return [...prev, { path, action, additions: 1, deletions: 0 }];
-      });
-    },
-    []
-  );
-
-  const handleRun = useCallback(
-    async (agentId: string, input: string, extraFields?: Record<string, string>) => {
-      const agent = agents.find((a) => a.id === agentId);
-      if (!agent) return;
-
-      const controller = new AbortController();
-      abortControllers.current[agentId] = controller;
-
-      updateAgent(agentId, { status: "running", currentPhase: 0 });
-      setActiveAgentId(agentId);
-      setThinkingSteps([]);
-      setFileChanges([]);
-      addLog(agentId, agent.name, "info", `Starting with input: ${input}`);
-      addThinkingStep("decide", `Starting ${agent.name}`, `Input: ${input}`);
-
-      try {
-        const res = await fetch("/api/agent/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId, input, extraFields }),
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Failed to start agent");
-        }
-
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("No response body");
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-
-            try {
-              const event = JSON.parse(data);
-
-              if (event.type === "phase") {
-                updateAgent(agentId, { currentPhase: event.phase });
-                addLog(agentId, agent.name, "phase", event.message);
-                addThinkingStep("decide", event.message, `Phase ${event.phase + 1}/${agent.phases.length}`);
-              } else if (event.type === "output") {
-                addLog(agentId, agent.name, "output", event.message);
-              } else if (event.type === "error") {
-                addLog(agentId, agent.name, "error", event.message);
-                addThinkingStep("error", event.message);
-              } else if (event.type === "thinking") {
-                addThinkingStep(event.action, event.target, event.detail);
-              } else if (event.type === "file_change") {
-                addFileChange(event.path, event.action);
-              } else if (event.type === "complete") {
-                updateAgent(agentId, { status: "completed" });
-                addLog(agentId, agent.name, "success", "Agent completed successfully");
-                addThinkingStep("done", "Agent completed successfully");
-                if (agentId === "testbot") {
-                  addLog(agentId, agent.name, "success", `DOWNLOAD:agents-data/manual-qa-agent/cases.json`);
-                }
-              }
-            } catch {
-              // skip malformed JSON
-            }
-          }
-        }
-
-        setAgentStates((prev) => {
-          if (prev[agentId].status === "running") {
-            return {
-              ...prev,
-              [agentId]: { ...prev[agentId], status: "completed" },
-            };
-          }
-          return prev;
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          updateAgent(agentId, { status: "idle" });
-          addLog(agentId, agent.name, "info", "Agent stopped by user");
-        } else {
-          updateAgent(agentId, { status: "error" });
-          addLog(
-            agentId,
-            agent.name,
-            "error",
-            err instanceof Error ? err.message : "Unknown error"
-          );
-        }
-      } finally {
-        delete abortControllers.current[agentId];
-      }
-    },
-    [addLog, updateAgent, addThinkingStep, addFileChange]
-  );
-
-  const handleStop = useCallback(
-    async (agentId: string) => {
-      const agent = agents.find((a) => a.id === agentId);
-      if (agent) {
-        addLog(agentId, agent.name, "info", "Stopping agent...");
-      }
-
-      // Kill the server-side process via stop API
-      try {
-        await fetch("/api/agent/stop", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId }),
-        });
-      } catch {
-        // ignore fetch errors
-      }
-
-      // Abort the client-side SSE connection
-      const controller = abortControllers.current[agentId];
-      if (controller) {
-        controller.abort();
-        delete abortControllers.current[agentId];
-      }
-
-      // Immediately update UI to idle
-      updateAgent(agentId, { status: "idle" });
-      if (agent) {
-        addLog(agentId, agent.name, "info", "Agent stopped by user");
-      }
-    },
-    [addLog, updateAgent]
-  );
-
-  const runningCount = Object.values(agentStates).filter(
-    (s) => s.status === "running"
-  ).length;
-
-  const activeAgent = activeAgentId ? agents.find((a) => a.id === activeAgentId) : null;
-  const activeState = activeAgentId ? agentStates[activeAgentId] : null;
-
-  const tabs: { id: RightTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: "logs", label: "Logs", icon: <Terminal className="h-3.5 w-3.5" />, badge: logs.length },
-    { id: "thinking", label: "Thinking", icon: <Brain className="h-3.5 w-3.5" />, badge: thinkingSteps.length },
-    { id: "files", label: "Files", icon: <FileText className="h-3.5 w-3.5" />, badge: fileChanges.length },
-    { id: "flow", label: "Flow", icon: <Workflow className="h-3.5 w-3.5" /> },
-  ];
+  const activeSessions = sessions.filter((s) => isSessionActive(s, utcHour));
+  const upcomingSessions = sessions
+    .filter((s) => !isSessionActive(s, utcHour))
+    .sort(
+      (a, b) =>
+        minutesUntilSession(a, utcHour, utcMinute) -
+        minutesUntilSession(b, utcHour, utcMinute)
+    );
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: '#0a0f1a' }}>
+    <div className="flex flex-col h-screen" style={{ background: "#0a0f1a" }}>
       {/* Header */}
       <header className="border-b border-white/[0.08] px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold tracking-[2px]">
-              <span className="text-[#f1f5f9]">QA </span>
-              <span className="text-[#f59e0b]">AGENT </span>
-              <span className="text-[#6366f1]">SYSTEM</span>
+              <span className="text-[#f1f5f9]">TRADING </span>
+              <span className="text-[#f59e0b]">SESSIONS </span>
+              <span className="text-[#6366f1]">KILLZONES</span>
             </h1>
             <p className="text-[11px] text-[#64748b] tracking-[0.5px] mt-1">
-              Automated QA Pipeline — Playwright Test Suite
+              Forex & Index Session Monitor — Telegram Alerts
             </p>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-6">
+            {/* Telegram Status */}
             <div className="flex items-center gap-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  runningCount > 0 ? "bg-[#10b981] shadow-[0_0_8px_#10b981]" : "bg-[#374151]"
+                  telegramStatus === "ok"
+                    ? "bg-[#10b981] shadow-[0_0_8px_#10b981]"
+                    : telegramStatus === "error"
+                    ? "bg-[#ef4444]"
+                    : "bg-[#374151]"
                 }`}
-                style={runningCount > 0 ? { animation: 'pulse-dot 1.2s infinite' } : undefined}
               />
               <span className="text-[11px] text-[#94a3b8] uppercase tracking-[0.5px]">
-                {runningCount > 0
-                  ? `${runningCount} running`
-                  : "Idle"}
+                TG {telegramStatus === "ok" ? "Connected" : telegramStatus === "error" ? "Not Set" : "..."}
               </span>
             </div>
+
+            {/* Notification Toggle */}
+            <button
+              onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold uppercase tracking-[0.5px] transition-colors ${
+                notificationsEnabled
+                  ? "bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30"
+                  : "bg-white/[0.05] text-[#64748b] border border-white/[0.08]"
+              }`}
+            >
+              {notificationsEnabled ? (
+                <Bell className="h-3.5 w-3.5" />
+              ) : (
+                <BellOff className="h-3.5 w-3.5" />
+              )}
+              Alerts {notificationsEnabled ? "ON" : "OFF"}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: Agent cards */}
-        <div className="w-[440px] shrink-0 border-r border-white/[0.08] overflow-y-auto p-4 space-y-3">
-          {agents.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              status={agentStates[agent.id].status}
-              currentPhase={agentStates[agent.id].currentPhase}
-              onRun={handleRun}
-              onStop={handleStop}
-            />
-          ))}
+      {/* Time Bar */}
+      <div className="border-b border-white/[0.08] px-6 py-3 flex items-center gap-8 bg-white/[0.02]">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-3.5 w-3.5 text-[#ef4444]" />
+          <span className="text-[11px] text-[#64748b] uppercase tracking-[0.5px]">GEO (UTC+4)</span>
+          <span className="text-[15px] font-bold text-[#f1f5f9] font-mono">{geoStr}</span>
         </div>
+        <div className="flex items-center gap-2">
+          <Globe className="h-3.5 w-3.5 text-[#60a5fa]" />
+          <span className="text-[11px] text-[#64748b] uppercase tracking-[0.5px]">UTC</span>
+          <span className="text-[15px] font-bold text-[#94a3b8] font-mono">{utcStr}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Globe className="h-3.5 w-3.5 text-[#f59e0b]" />
+          <span className="text-[11px] text-[#64748b] uppercase tracking-[0.5px]">NY (UTC-5)</span>
+          <span className="text-[15px] font-bold text-[#94a3b8] font-mono">{nyStr}</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Zap
+            className={`h-3.5 w-3.5 ${
+              activeSessions.length > 0 ? "text-[#10b981]" : "text-[#374151]"
+            }`}
+          />
+          <span className="text-[11px] text-[#94a3b8] uppercase tracking-[0.5px]">
+            {activeSessions.length} Active Session{activeSessions.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      </div>
 
-        {/* Right: Tabbed panels */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Tab bar */}
-          <div className="flex items-center border-b border-white/[0.08] bg-white/[0.02] px-2 shrink-0">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.5px] border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? "border-[#f59e0b] text-[#f1f5f9]"
-                    : "border-transparent text-[#64748b] hover:text-[#94a3b8]"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-                {tab.badge !== undefined && tab.badge > 0 && (
-                  <span
-                    className={`text-[9px] px-1.5 py-px rounded-full ${
-                      activeTab === tab.id
-                        ? "bg-[#f59e0b]/20 text-[#f59e0b]"
-                        : "bg-white/[0.08] text-[#94a3b8]"
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="flex-1 overflow-hidden">
-            {activeTab === "logs" && (
-              <LogViewer logs={logs} onClear={() => setLogs([])} />
-            )}
-            {activeTab === "thinking" && (
-              <ThinkingPanel steps={thinkingSteps} isActive={runningCount > 0} />
-            )}
-            {activeTab === "files" && (
-              <FileChangesPanel changes={fileChanges} />
-            )}
-            {activeTab === "flow" && (
-              <AgentFlow
-                phases={activeAgent?.phases || []}
-                currentPhase={activeState?.currentPhase || 0}
-                status={activeState?.status || "idle"}
-                agentName={activeAgent?.name || ""}
-                agentColor={activeAgent?.color || "blue"}
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {/* Active Sessions */}
+        {activeSessions.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className="w-2 h-2 rounded-full bg-[#10b981]"
+                style={{ animation: "pulse-dot 1.2s infinite" }}
               />
-            )}
+              <h2 className="text-[13px] font-bold text-[#10b981] uppercase tracking-[1px]">
+                Active Now
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {activeSessions.map((session) => (
+                <SessionCard key={session.id} session={session} active utcHour={utcHour} utcMinute={utcMinute} />
+              ))}
+            </div>
           </div>
+        )}
+
+        {/* Upcoming Sessions */}
+        {upcomingSessions.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Timer className="h-3.5 w-3.5 text-[#64748b]" />
+              <h2 className="text-[13px] font-bold text-[#64748b] uppercase tracking-[1px]">
+                Upcoming
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {upcomingSessions.map((session) => (
+                <SessionCard key={session.id} session={session} active={false} utcHour={utcHour} utcMinute={utcMinute} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes glow-pulse {
+          0%, 100% { box-shadow: 0 0 15px var(--glow-color); }
+          50% { box-shadow: 0 0 30px var(--glow-color), 0 0 60px var(--glow-color); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function SessionCard({
+  session,
+  active,
+  utcHour,
+  utcMinute,
+}: {
+  session: TradingSession;
+  active: boolean;
+  utcHour: number;
+  utcMinute: number;
+}) {
+  const countdown = minutesUntilSession(session, utcHour, utcMinute);
+  const isKillzone = session.id.includes("-kz");
+
+  return (
+    <div
+      className={`relative rounded-lg border p-4 transition-all ${
+        active
+          ? "border-white/[0.15] bg-white/[0.05]"
+          : "border-white/[0.06] bg-white/[0.02] opacity-60 hover:opacity-80"
+      }`}
+      style={
+        active
+          ? ({
+              "--glow-color": session.glowColor,
+              animation: "glow-pulse 3s ease-in-out infinite",
+              boxShadow: `0 0 20px ${session.glowColor}`,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
+      {/* Status indicator */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{
+              backgroundColor: session.color,
+              boxShadow: active ? `0 0 10px ${session.color}` : "none",
+              animation: active ? "pulse-dot 1.2s infinite" : "none",
+            }}
+          />
+          <span
+            className="text-[13px] font-bold uppercase tracking-[0.5px]"
+            style={{ color: active ? session.color : "#94a3b8" }}
+          >
+            {session.shortName}
+          </span>
+          {isKillzone && (
+            <span
+              className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+              style={{
+                backgroundColor: `${session.color}20`,
+                color: session.color,
+              }}
+            >
+              Killzone
+            </span>
+          )}
         </div>
+        <span
+          className={`text-[11px] font-bold uppercase tracking-[0.5px] px-2 py-0.5 rounded ${
+            active
+              ? "bg-[#10b981]/20 text-[#10b981]"
+              : "bg-white/[0.05] text-[#64748b]"
+          }`}
+        >
+          {active ? "LIVE" : formatCountdown(countdown)}
+        </span>
+      </div>
+
+      {/* Session Name */}
+      <h3 className="text-[14px] font-semibold text-[#f1f5f9] mb-2">
+        {session.name}
+      </h3>
+
+      {/* Times */}
+      <div className="flex gap-4 mb-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-[#64748b] uppercase">GEO:</span>
+          <span className="text-[12px] font-mono font-semibold text-[#f1f5f9]">
+            {session.georgianTime}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-[#64748b] uppercase">NY:</span>
+          <span className="text-[12px] font-mono font-semibold text-[#94a3b8]">
+            {session.nyTime}
+          </span>
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-[11px] text-[#94a3b8] leading-relaxed">
+        {session.description}
+      </p>
+
+      {/* Progress bar for active sessions */}
+      {active && <SessionProgress session={session} utcHour={utcHour} utcMinute={utcMinute} />}
+    </div>
+  );
+}
+
+function SessionProgress({
+  session,
+  utcHour,
+  utcMinute,
+}: {
+  session: TradingSession;
+  utcHour: number;
+  utcMinute: number;
+}) {
+  const nowMinutes = utcHour * 60 + utcMinute;
+  const startMinutes = session.utcStart * 60;
+  let endMinutes = session.utcEnd * 60;
+
+  if (session.utcStart >= session.utcEnd) {
+    endMinutes += 24 * 60;
+  }
+
+  let current = nowMinutes - startMinutes;
+  if (current < 0) current += 24 * 60;
+
+  const total = endMinutes - startMinutes;
+  const pct = Math.min(100, Math.max(0, (current / total) * 100));
+
+  const remaining = total - current;
+  const remH = Math.floor(remaining / 60);
+  const remM = remaining % 60;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] text-[#64748b] uppercase">Progress</span>
+        <span className="text-[10px] text-[#64748b]">
+          {remH > 0 ? `${remH}h ${remM}m` : `${remM}m`} remaining
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-1000"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: session.color,
+            boxShadow: `0 0 8px ${session.color}`,
+          }}
+        />
       </div>
     </div>
   );
