@@ -45,7 +45,7 @@ export default function Dashboard() {
   const utcStr = now.toISOString().slice(11, 19);
 
   // Send telegram notification
-  const sendNotification = useCallback(async (session: TradingSession) => {
+  const sendNotification = useCallback(async (session: TradingSession, type: "open" | "close") => {
     try {
       await fetch("/api/telegram/notify", {
         method: "POST",
@@ -55,6 +55,7 @@ export default function Dashboard() {
           georgianTime: session.georgianTime,
           nyTime: session.nyTime,
           description: session.description,
+          type,
         }),
       });
     } catch {
@@ -62,19 +63,28 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Check for session opens and send notifications
+  // Check for session opens AND closes, send notifications
   useEffect(() => {
     if (!notificationsEnabled) return;
 
     sessions.forEach((session) => {
       const active = isSessionActive(session, utcHour);
-      const key = `${session.id}-${utcHour}`;
+      const openKey = `open-${session.id}-${utcHour}`;
+      const closeKey = `close-${session.id}-${utcHour}`;
 
-      if (active && !sentNotifications.current.has(key)) {
-        // Only notify at the exact start hour
+      // Session just opened
+      if (active && !sentNotifications.current.has(openKey)) {
         if (utcHour === session.utcStart && utcMinute < 2) {
-          sentNotifications.current.add(key);
-          sendNotification(session);
+          sentNotifications.current.add(openKey);
+          sendNotification(session, "open");
+        }
+      }
+
+      // Session just closed
+      if (!active && !sentNotifications.current.has(closeKey)) {
+        if (utcHour === session.utcEnd && utcMinute < 2) {
+          sentNotifications.current.add(closeKey);
+          sendNotification(session, "close");
         }
       }
     });

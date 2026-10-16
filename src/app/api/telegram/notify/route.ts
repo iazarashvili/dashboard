@@ -25,14 +25,20 @@ async function sendTelegram(text: string): Promise<boolean> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionName, georgianTime, nyTime, description } = await req.json();
+    const { sessionName, georgianTime, nyTime, description, type = "open" } = await req.json();
 
-    const text =
-      `🔔 <b>SESSION OPEN</b>\n\n` +
-      `📍 <b>${sessionName}</b>\n` +
-      `🇬🇪 Georgia: ${georgianTime}\n` +
-      `🇺🇸 New York: ${nyTime}\n\n` +
-      `📝 ${description}`;
+    const isOpen = type === "open";
+    const text = isOpen
+      ? `🟢 <b>SESSION OPEN</b>\n\n` +
+        `📍 <b>${sessionName}</b>\n` +
+        `🇬🇪 Georgia: ${georgianTime}\n` +
+        `🇺🇸 New York: ${nyTime}\n\n` +
+        `📝 ${description}`
+      : `🔴 <b>SESSION CLOSED</b>\n\n` +
+        `📍 <b>${sessionName}</b>\n` +
+        `🇬🇪 Georgia: ${georgianTime}\n` +
+        `🇺🇸 New York: ${nyTime}\n\n` +
+        `სესია დასრულდა.`;
 
     const ok = await sendTelegram(text);
 
