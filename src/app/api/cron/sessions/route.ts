@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessions, isSessionActive } from "@/lib/sessions";
 import type { TradingSession } from "@/lib/sessions";
 
-export const runtime = "edge";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID ?? "";
