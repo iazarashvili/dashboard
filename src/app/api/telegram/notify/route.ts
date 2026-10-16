@@ -25,20 +25,39 @@ async function sendTelegram(text: string): Promise<boolean> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionName, georgianTime, nyTime, description, type = "open" } = await req.json();
+    const {
+      sessionName, georgianTime, nyTime, description,
+      type = "open",
+      durationHours = 0,
+      nextSessionName = "",
+      nextSessionGeoTime = "",
+      nextSessionNyTime = "",
+    } = await req.json();
 
-    const isOpen = type === "open";
-    const text = isOpen
-      ? `🟢 <b>SESSION OPEN</b>\n\n` +
+    let text: string;
+
+    if (type === "open") {
+      text =
+        `🟢 <b>SESSION OPEN</b>\n\n` +
         `📍 <b>${sessionName}</b>\n` +
         `🇬🇪 Georgia: ${georgianTime}\n` +
-        `🇺🇸 New York: ${nyTime}\n\n` +
-        `📝 ${description}`
-      : `🔴 <b>SESSION CLOSED</b>\n\n` +
-        `📍 <b>${sessionName}</b>\n` +
-        `🇬🇪 Georgia: ${georgianTime}\n` +
-        `🇺🇸 New York: ${nyTime}\n\n` +
-        `სესია დასრულდა.`;
+        `🇺🇸 New York: ${nyTime}\n` +
+        `⏱ ხანგრძლივობა: ${durationHours}სთ\n\n` +
+        `📝 ${description}`;
+    } else {
+      text =
+        `🔴 <b>SESSION CLOSED</b>\n\n` +
+        `📍 <b>${sessionName}</b> დაიხურა\n\n`;
+
+      if (nextSessionName) {
+        text +=
+          `⏭ შემდეგი: <b>${nextSessionName}</b>\n` +
+          `🇬🇪 Georgia: ${nextSessionGeoTime}\n` +
+          `🇺🇸 New York: ${nextSessionNyTime}`;
+      } else {
+        text += `ყველა სესია დახურულია.`;
+      }
+    }
 
     const ok = await sendTelegram(text);
 

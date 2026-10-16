@@ -44,24 +44,64 @@ export default function Dashboard() {
   // UTC time
   const utcStr = now.toISOString().slice(11, 19);
 
+  // Find the next upcoming session after a given one closes
+  const findNextSession = useCallback((closingSession: TradingSession) => {
+    const others = sessions.filter((s) => s.id !== closingSession.id);
+    let nearest: TradingSession | null = null;
+    let nearestMin = Infinity;
+    for (const s of others) {
+      const min = minutesUntilSession(s, closingSession.utcEnd, 0);
+      if (min > 0 && min < nearestMin) {
+        nearestMin = min;
+        nearest = s;
+      }
+    }
+    // If nothing upcoming, pick the first active one at close hour
+    if (!nearest) {
+      for (const s of others) {
+        if (isSessionActive(s, closingSession.utcEnd)) {
+          nearest = s;
+          break;
+        }
+      }
+    }
+    return nearest;
+  }, []);
+
   // Send telegram notification
   const sendNotification = useCallback(async (session: TradingSession, type: "open" | "close") => {
+    const durationHours = session.utcEnd > session.utcStart
+      ? session.utcEnd - session.utcStart
+      : 24 - session.utcStart + session.utcEnd;
+
+    const payload: Record<string, unknown> = {
+      sessionName: session.name,
+      georgianTime: session.georgianTime,
+      nyTime: session.nyTime,
+      description: session.description,
+      type,
+      durationHours,
+    };
+
+    if (type === "close") {
+      const next = findNextSession(session);
+      if (next) {
+        payload.nextSessionName = next.name;
+        payload.nextSessionGeoTime = next.georgianTime;
+        payload.nextSessionNyTime = next.nyTime;
+      }
+    }
+
     try {
       await fetch("/api/telegram/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionName: session.name,
-          georgianTime: session.georgianTime,
-          nyTime: session.nyTime,
-          description: session.description,
-          type,
-        }),
+        body: JSON.stringify(payload),
       });
     } catch {
       // silent fail
     }
-  }, []);
+  }, [findNextSession]);
 
   // Check for session opens AND closes, send notifications
   useEffect(() => {
