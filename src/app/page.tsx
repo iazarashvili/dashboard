@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [telegramStatus, setTelegramStatus] = useState<"unknown" | "ok" | "error">("unknown");
   const [newsEvents, setNewsEvents] = useState<NewsEvent[]>([]);
+  const [activeTab, setActiveTab] = useState<"sessions" | "news">("sessions");
   const sentNotifications = useRef<Set<string>>(new Set());
 
   // Update clock every second
@@ -243,11 +244,93 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Tab Bar */}
+      <div className="border-b border-white/[0.08] px-6 flex items-center gap-1 bg-white/[0.02]">
+        <button
+          onClick={() => setActiveTab("sessions")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.5px] border-b-2 transition-colors ${
+            activeTab === "sessions"
+              ? "border-[#f59e0b] text-[#f1f5f9]"
+              : "border-transparent text-[#64748b] hover:text-[#94a3b8]"
+          }`}
+        >
+          <Zap className="h-3.5 w-3.5" />
+          Sessions
+          {activeSessions.length > 0 && (
+            <span className={`text-[9px] px-1.5 py-px rounded-full ${
+              activeTab === "sessions" ? "bg-[#10b981]/20 text-[#10b981]" : "bg-white/[0.08] text-[#94a3b8]"
+            }`}>
+              {activeSessions.length} live
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("news")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.5px] border-b-2 transition-colors ${
+            activeTab === "news"
+              ? "border-[#ef4444] text-[#f1f5f9]"
+              : "border-transparent text-[#64748b] hover:text-[#94a3b8]"
+          }`}
+        >
+          <Newspaper className="h-3.5 w-3.5" />
+          Forex Factory
+          {newsEvents.length > 0 && (
+            <span className={`text-[9px] px-1.5 py-px rounded-full ${
+              activeTab === "news" ? "bg-[#ef4444]/20 text-[#ef4444]" : "bg-white/[0.08] text-[#94a3b8]"
+            }`}>
+              {newsEvents.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {/* High Impact News */}
-        {newsEvents.length > 0 && (
-          <div className="mb-8">
+        {/* Sessions Tab */}
+        {activeTab === "sessions" && (
+          <>
+            {/* Active Sessions */}
+            {activeSessions.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <div
+                    className="w-2 h-2 rounded-full bg-[#10b981]"
+                    style={{ animation: "pulse-dot 1.2s infinite" }}
+                  />
+                  <h2 className="text-[13px] font-bold text-[#10b981] uppercase tracking-[1px]">
+                    Active Now
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {activeSessions.map((session) => (
+                    <SessionCard key={session.id} session={session} active utcHour={utcHour} utcMinute={utcMinute} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upcoming Sessions */}
+            {upcomingSessions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Timer className="h-3.5 w-3.5 text-[#64748b]" />
+                  <h2 className="text-[13px] font-bold text-[#64748b] uppercase tracking-[1px]">
+                    Upcoming
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {upcomingSessions.map((session) => (
+                    <SessionCard key={session.id} session={session} active={false} utcHour={utcHour} utcMinute={utcMinute} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Forex Factory Tab */}
+        {activeTab === "news" && (
+          <div>
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="h-3.5 w-3.5 text-[#ef4444]" />
               <h2 className="text-[13px] font-bold text-[#ef4444] uppercase tracking-[1px]">
@@ -257,48 +340,15 @@ export default function Dashboard() {
                 {newsEvents.length}
               </span>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-              {newsEvents.map((event, i) => (
-                <NewsCard key={`${event.title}-${event.date}-${i}`} event={event} now={now} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Active Sessions */}
-        {activeSessions.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <div
-                className="w-2 h-2 rounded-full bg-[#10b981]"
-                style={{ animation: "pulse-dot 1.2s infinite" }}
-              />
-              <h2 className="text-[13px] font-bold text-[#10b981] uppercase tracking-[1px]">
-                Active Now
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {activeSessions.map((session) => (
-                <SessionCard key={session.id} session={session} active utcHour={utcHour} utcMinute={utcMinute} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Upcoming Sessions */}
-        {upcomingSessions.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Timer className="h-3.5 w-3.5 text-[#64748b]" />
-              <h2 className="text-[13px] font-bold text-[#64748b] uppercase tracking-[1px]">
-                Upcoming
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {upcomingSessions.map((session) => (
-                <SessionCard key={session.id} session={session} active={false} utcHour={utcHour} utcMinute={utcMinute} />
-              ))}
-            </div>
+            {newsEvents.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                {newsEvents.map((event, i) => (
+                  <NewsCard key={`${event.title}-${event.date}-${i}`} event={event} now={now} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-[#64748b] text-[13px]">No high-impact news this week.</p>
+            )}
           </div>
         )}
       </div>
