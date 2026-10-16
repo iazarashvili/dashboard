@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@playwright/mcp": "^0.0.75",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   sessions,
   isSessionActive,
@@ -8,7 +8,7 @@ import {
   formatCountdown,
   type TradingSession,
 } from "@/lib/sessions";
-import { Bell, BellOff, Globe, MapPin, Zap, Timer, AlertTriangle, Newspaper } from "lucide-react";
+import { Globe, MapPin, Zap, Timer, AlertTriangle, Newspaper } from "lucide-react";
 
 interface NewsEvent {
   title: string;
@@ -20,11 +20,9 @@ interface NewsEvent {
 
 export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [telegramStatus, setTelegramStatus] = useState<"unknown" | "ok" | "error">("unknown");
   const [newsEvents, setNewsEvents] = useState<NewsEvent[]>([]);
   const [activeTab, setActiveTab] = useState<"sessions" | "news">("sessions");
-  const sentNotifications = useRef<Set<string>>(new Set());
 
   // Update clock every second
   useEffect(() => {
@@ -41,7 +39,7 @@ export default function Dashboard() {
         .catch(() => {});
     };
     fetchNews();
-    const id = setInterval(fetchNews, 5 * 60 * 1000); // refresh every 5 min
+    const id = setInterval(fetchNews, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -67,91 +65,7 @@ export default function Dashboard() {
   // UTC time
   const utcStr = now.toISOString().slice(11, 19);
 
-  // Find the next upcoming session after a given one closes
-  const findNextSession = useCallback((closingSession: TradingSession) => {
-    const others = sessions.filter((s) => s.id !== closingSession.id);
-    let nearest: TradingSession | null = null;
-    let nearestMin = Infinity;
-    for (const s of others) {
-      const min = minutesUntilSession(s, closingSession.utcEnd, 0);
-      if (min > 0 && min < nearestMin) {
-        nearestMin = min;
-        nearest = s;
-      }
-    }
-    // If nothing upcoming, pick the first active one at close hour
-    if (!nearest) {
-      for (const s of others) {
-        if (isSessionActive(s, closingSession.utcEnd)) {
-          nearest = s;
-          break;
-        }
-      }
-    }
-    return nearest;
-  }, []);
-
-  // Send telegram notification
-  const sendNotification = useCallback(async (session: TradingSession, type: "open" | "close") => {
-    const durationHours = session.utcEnd > session.utcStart
-      ? session.utcEnd - session.utcStart
-      : 24 - session.utcStart + session.utcEnd;
-
-    const payload: Record<string, unknown> = {
-      sessionName: session.name,
-      georgianTime: session.georgianTime,
-      nyTime: session.nyTime,
-      description: session.description,
-      type,
-      durationHours,
-    };
-
-    if (type === "close") {
-      const next = findNextSession(session);
-      if (next) {
-        payload.nextSessionName = next.name;
-        payload.nextSessionGeoTime = next.georgianTime;
-        payload.nextSessionNyTime = next.nyTime;
-      }
-    }
-
-    try {
-      await fetch("/api/telegram/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch {
-      // silent fail
-    }
-  }, [findNextSession]);
-
-  // Check for session opens AND closes, send notifications
-  useEffect(() => {
-    if (!notificationsEnabled) return;
-
-    sessions.forEach((session) => {
-      const active = isSessionActive(session, utcHour);
-      const openKey = `open-${session.id}-${utcHour}`;
-      const closeKey = `close-${session.id}-${utcHour}`;
-
-      // Session just opened
-      if (active && !sentNotifications.current.has(openKey)) {
-        if (utcHour === session.utcStart && utcMinute < 2) {
-          sentNotifications.current.add(openKey);
-          sendNotification(session, "open");
-        }
-      }
-
-      // Session just closed
-      if (!active && !sentNotifications.current.has(closeKey)) {
-        if (utcHour === session.utcEnd && utcMinute < 2) {
-          sentNotifications.current.add(closeKey);
-          sendNotification(session, "close");
-        }
-      }
-    });
-  }, [utcHour, utcMinute, notificationsEnabled, sendNotification]);
+  // Notifications are handled server-side via /api/cron/sessions
 
   const activeSessions = sessions.filter((s) => isSessionActive(s, utcHour));
   const upcomingSessions = sessions
@@ -195,22 +109,7 @@ export default function Dashboard() {
               </span>
             </div>
 
-            {/* Notification Toggle */}
-            <button
-              onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold uppercase tracking-[0.5px] transition-colors ${
-                notificationsEnabled
-                  ? "bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30"
-                  : "bg-white/[0.05] text-[#64748b] border border-white/[0.08]"
-              }`}
-            >
-              {notificationsEnabled ? (
-                <Bell className="h-3.5 w-3.5" />
-              ) : (
-                <BellOff className="h-3.5 w-3.5" />
-              )}
-              Alerts {notificationsEnabled ? "ON" : "OFF"}
-            </button>
+            {/* Notifications handled server-side via cron */}
           </div>
         </div>
       </header>

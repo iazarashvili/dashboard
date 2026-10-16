@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 interface FFEvent {
   title: string;
   country: string;
@@ -13,7 +15,7 @@ export async function GET() {
   try {
     const res = await fetch(
       "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
-      { next: { revalidate: 300 } } // cache 5 min
+      { cache: "no-store" }
     );
 
     if (!res.ok) {
